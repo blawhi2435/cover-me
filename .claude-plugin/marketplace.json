@@ -1,0 +1,29 @@
+{
+  "name": "jerry-ai-tools",
+  "owner": {
+    "name": "Jerry Chang"
+  },
+  "metadata": {
+    "description": "AI coding workflow tools — skills for git, code review, and coding standards"
+  },
+  "plugins": [
+    {
+      "name": "git-workflow",
+      "source": "./plugins/git-workflow",
+      "description": "Git commit and push workflow skills",
+      "category": "development"
+    },
+    {
+      "name": "code-review",
+      "source": "./plugins/code-review",
+      "description": "Multi-angle code review skills",
+      "category": "development"
+    },
+    {
+      "name": "standard-coding-style",
+      "source": "./plugins/standard-coding-style",
+      "description": "Coding standards and best practices enforcement",
+      "category": "development"
+    }
+  ]
+}
