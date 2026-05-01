@@ -24,6 +24,12 @@
       "source": "./plugins/standard-coding-style",
       "description": "Coding standards and best practices enforcement",
       "category": "development"
+    },
+    {
+      "name": "dev-flow",
+      "source": "./plugins/dev-flow",
+      "description": "Full delivery workflow from spec design through PR — brainstorm, branch, TDD, code review, and PR open",
+      "category": "development"
     }
   ]
 }
