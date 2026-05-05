@@ -72,40 +72,31 @@ If the engineer finds opsx-specific framing that genuinely isn't in the source s
 
 Detect skip cases by keywords in task title/description: `schema`, `migration`, `config`, `docs`, `documentation`. For skipped tasks, leave structure as-is and add an inline note: `<!-- TDD skipped: <reason> -->`.
 
-### Node 5 — opsx:apply (TDD + coding style)
-**Before** invoking `opsx:apply`, load both:
-- `superpowers:test-driven-development`
-- `standard-coding-style:standard-coding-style`
+### Nodes 5–11 — Dispatch to `dev-flow-implement` subagent (Sonnet)
 
-Then invoke `opsx:apply`. Per sub-task cycle: write test → write code (style applied) → run test → refactor (style applied). Tests run after each sub-task, not after the whole task.
+After Node 4 completes, hand off the entire implementation phase to the `dev-flow-implement` subagent via the Task tool (`subagent_type: dev-flow-implement`). That subagent runs on Sonnet and owns:
 
-### Node 6 — Code review
-Invoke `code-review:code-review` automatically (it self-selects lightweight vs security mode). User may skip with explicit instruction (`skip review`).
+- Node 5: opsx:apply (with TDD + coding style)
+- Node 6: code review
+- Node 7: unit + integration tests
+- Node 8: opsx:archive
+- Node 9: commit pending changes
+- Node 10: `gh pr create`
+- Node 11: return summary
 
-- If issues → convert each issue into a new sub-task in `tasks.md`, then return to Node 5.
-- If pass → proceed to Node 7.
+The apply↔review↔test loop stays inside the subagent so loop iterations don't cold-restart and lose context.
 
-Apply loop limit per `references/loop-limits.md`.
+**Dispatch brief must include** (subagent starts cold):
+- Change name from Node 3
+- Path to brainstorm spec from Node 1
+- Path to `openspec/changes/<change-name>/tasks.md`
+- Branch name from Node 2
+- Loop limits reference (`references/loop-limits.md`)
+- Test detection reference (`references/test-detection.md`)
 
-### Node 7 — Tests
-Locate the project's integration script per `references/test-detection.md`. Run unit tests (`go test ./...` or project equivalent) AND the integration script.
+**On return:** the subagent gives back branch name, PR URL, archived change name, and iteration counts. Update todos 5–11 to `completed`, then run Node 11 in the orchestrator: print that summary verbatim to the user.
 
-- If fail → return to Node 5 with failure summary.
-- If pass → proceed to Node 8.
-
-Apply loop limit per `references/loop-limits.md`.
-
-### Node 8 — opsx:archive
-Invoke `opsx:archive`.
-
-### Node 9 — Commit pending changes
-Check `git status`. If anything is uncommitted (typically the archive's file moves, plus any spec/plan files the user wants tracked), invoke `git-workflow:git-commit` to stage and commit them. If `git status` is clean, skip and proceed.
-
-### Node 10 — Open PR
-Run `gh pr create` with title derived from the opsx change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan.
-
-### Node 11 — Summary
-Print to user: branch name, PR URL, archived change name, total apply iterations, total review iterations, total test iterations.
+**On halt/blocker:** if the subagent returns a blocker (loop limit hit, unresolvable test failure, etc.), surface it to the user verbatim and stop.
 
 ## Loops & limits
 
