@@ -34,12 +34,28 @@ Tasks annotated `<!-- TDD skipped: <reason> -->` (typically schema/migration/con
 
 ## Node 6 — Code review
 
-Invoke the skill **exactly** named `code-review:code-review` (it self-selects lightweight vs security mode).
+You **must actually attempt** to invoke the skill exactly named `code-review:code-review` (it self-selects lightweight vs security mode). Do not pre-judge availability — make the call.
 
-**Do not substitute** any other code-review skill, subagent, generic "review the code" prompt, or external tool — even if another skill with a similar name (e.g. `review`, `security-review`, `*-code-review`) is available. This node is calibrated against `code-review:code-review` specifically; using anything else silently changes the review contract.
+**Do not substitute** any other code-review skill, subagent, generic "review the code" prompt, inline single-pass scan, or external tool — even if another skill with a similar name (e.g. `review`, `security-review`, `*-code-review`) is available. This node is calibrated against `code-review:code-review` specifically; using anything else silently changes the review contract.
 
-- Issues found → convert each into a new sub-task in `tasks.md` and **return to Node 5** for those new sub-tasks.
-- Pass → proceed to Node 7.
+The skill itself dispatches specialist subagents (logic / style / test / security) in parallel. **Inline single-pass review is forbidden** even if it feels faster — the skill explicitly says "NEVER review code in a single pass in the main conversation."
+
+Outcomes:
+- Skill invocation succeeds, issues found → convert each into a new sub-task in `tasks.md` and **return to Node 5**.
+- Skill invocation succeeds, pass → proceed to Node 7.
+- Skill invocation **actually fails** (skill not registered in this subagent's context, tool error, Agent tool unavailable, specialist dispatch errors out) → **halt and return a blocker** to the orchestrator. Do NOT fall back to inline review.
+
+Blocker return shape:
+
+```json
+{
+  "node6_blocker": true,
+  "agentId": "<your agent ID>",
+  "error": "<the actual error message or reason invocation failed>"
+}
+```
+
+The orchestrator will run the skill itself and `SendMessage` back to you (same agent ID — keep your context warm) with the review results and instruction to continue from Node 7.
 
 Apply loop limit per `references/loop-limits.md`.
 
@@ -58,9 +74,27 @@ Invoke `opsx:archive`.
 
 ## Node 9 — Commit pending changes
 
-Check `git status`. If anything is uncommitted (typically the archive's file moves, plus any spec/plan files the user wants tracked), invoke the skill **exactly** named `git-workflow:git-commit`. Clean tree → skip.
+Check `git status`. Clean tree → skip to Node 10.
 
-**Do not substitute** raw `git commit` commands, other commit skills/agents, or any "smart commit" tool — even if a more general one is available. `git-workflow:git-commit` enforces the project's Conventional Commits format and confirmation flow; bypassing it breaks the contract.
+If anything is uncommitted (typically the archive's file moves, plus any spec/plan files the user wants tracked), you **must actually attempt** to invoke the skill exactly named `git-workflow:git-commit`. Do not pre-judge availability — make the call.
+
+**Do not substitute** raw `git commit` commands, other commit skills/agents, or any "smart commit" tool — even if a more general one is available. `git-workflow:git-commit` enforces the project's Conventional Commits format, logical splitting, and user confirmation; bypassing it breaks the contract.
+
+Outcomes:
+- Skill invocation succeeds → proceed to Node 10 once commits land.
+- Skill invocation **actually fails** (skill not registered, tool error) → **halt and return a blocker** to the orchestrator. Do NOT fall back to raw `git commit`.
+
+Blocker return shape:
+
+```json
+{
+  "node9_blocker": true,
+  "agentId": "<your agent ID>",
+  "error": "<the actual error message or reason invocation failed>"
+}
+```
+
+The orchestrator will run the skill itself and `SendMessage` back to you (same agent ID) with instruction to continue from Node 10.
 
 ## Node 10 — Open PR
 
@@ -80,4 +114,5 @@ Return to the orchestrator (do not print to user — the orchestrator will surfa
 
 - Loop limit exceeded at Node 6 or 7 → halt, return the loop state to the orchestrator. Do not loop indefinitely.
 - Unresolvable blocker (test you cannot make pass, ambiguous requirement, missing dependency, failed PR creation) → halt, return the blocker verbatim.
+- Required skill at Node 6 / Node 9 cannot be invoked → halt with the structured `node6_blocker` / `node9_blocker` payload (see those nodes). Never fall back to inline review or raw `git commit`.
 - Never write feature code outside the TDD cycle. Never skip review or tests to "get unstuck."

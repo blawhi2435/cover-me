@@ -96,7 +96,32 @@ The apply↔review↔test loop stays inside the subagent so loop iterations don'
 
 **On return:** the subagent gives back branch name, PR URL, archived change name, and iteration counts. Update todos 5–11 to `completed`, then run Node 11 in the orchestrator: print that summary verbatim to the user.
 
-**On halt/blocker:** if the subagent returns a blocker (loop limit hit, unresolvable test failure, etc.), surface it to the user verbatim and stop.
+**On halt/blocker:** if the subagent returns a blocker (loop limit hit, unresolvable test failure, etc.), surface it to the user verbatim and stop — **except** for the two structured skill-invocation blockers below, which the orchestrator handles by running the skill itself and resuming the same subagent.
+
+#### `node6_blocker` — code-review skill couldn't run inside subagent
+
+When the subagent returns `{"node6_blocker": true, "agentId": "<id>", "error": "..."}`:
+
+1. Invoke `code-review:code-review` skill **directly in the orchestrator** (the orchestrator has Agent-tool access and can dispatch the specialist subagents the skill requires). Do **not** inline-review yourself.
+2. After the skill returns results, resume the original subagent via `SendMessage` to the returned `agentId`, passing the review results and an instruction to continue from Node 7. Do **not** spawn a new subagent — the original still holds the implementation context.
+3. Only mark Node 6 todo `completed` after the skill has actually run and specialist results are in hand.
+
+#### `node9_blocker` — git-commit skill couldn't run inside subagent
+
+When the subagent returns `{"node9_blocker": true, "agentId": "<id>", "error": "..."}`:
+
+1. Invoke `git-workflow:git-commit` skill **directly in the orchestrator**. Do **not** run raw `git commit`.
+2. After commits land, resume the original subagent via `SendMessage` to the returned `agentId` with instruction to continue from Node 10.
+3. Only mark Node 9 todo `completed` after the skill has actually committed.
+
+#### Orchestrator-fallback guardrail (rare path)
+
+If for any reason the orchestrator ends up handling Node 6 or Node 9 directly (e.g. subagent crashed, partial recovery), the same skill rules still apply:
+
+- Node 6 → must invoke `code-review:code-review`. Inline single-pass review is forbidden.
+- Node 9 → must invoke `git-workflow:git-commit`. Raw `git commit` is forbidden.
+
+If the orchestrator itself cannot invoke the skill, halt and surface the error verbatim to the user — never silently degrade.
 
 ## Loops & limits
 
