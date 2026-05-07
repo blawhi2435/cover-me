@@ -72,31 +72,98 @@ If the engineer finds opsx-specific framing that genuinely isn't in the source s
 
 Detect skip cases by keywords in task title/description: `schema`, `migration`, `config`, `docs`, `documentation`. For skipped tasks, leave structure as-is and add an inline note: `<!-- TDD skipped: <reason> -->`.
 
-### Nodes 5–11 — Dispatch to `dev-flow-implement` subagent (Sonnet)
+### Node 4.5 — Aggregate design references
 
-After Node 4 completes, hand off the entire implementation phase to the `dev-flow-implement` subagent via the Task tool (`subagent_type: dev-flow-implement`). That subagent runs on Sonnet and owns:
+Before dispatching to the subagent, build the reference bundle. The subagent starts cold and **cannot see this session's conversation**, so anything produced in-session (e.g. `impeccable:shape` output) must be persisted to a file or it will be lost.
+
+**Ambient refs — auto-detected, no user action.** Check repo root and add each existing file to `ambient_refs`:
+
+- `./DESIGN.md` → `{kind: "project_design_doc", path: "DESIGN.md"}`
+- `./PRODUCT.md` → `{kind: "project_product_doc", path: "PRODUCT.md"}`
+
+Skip silently if absent.
+
+**Design refs — this change's specific design inputs.** Build `design_refs` from three sources:
+
+1. **In-session design output gate.** If this session ran `impeccable:shape` (or any skill whose design output exists only in the conversation, not as a file), prompt the user:
+
+   > 偵測到這個 session 跑過 `impeccable:shape`。要把 shape 結果寫到 `openspec/changes/<change>/shape.md` 再 dispatch 嗎？(y / edit-first / skip)
+
+   - `y` → write the final shape output to `openspec/changes/<change-name>/shape.md` and add `{kind: "shape", path: "..."}` to `design_refs`.
+   - `edit-first` → open the file for the user to refine, then proceed.
+   - `skip` → do not persist; record `"shape output not persisted"` in `deviations`.
+
+2. **Brainstorm spec `## References` section.** Each listed item becomes a `design_refs` entry. The spec must contain a References section in this format:
+
+   ```markdown
+   ## References
+
+   - [ ] Mockup: <path or url>
+   - [ ] Reference component: <path>
+   - [ ] Design tokens: <path>
+   - [ ] API contract / schema: <path>
+   - [ ] (none — purely backend/internal)
+   ```
+
+   If the section is missing AND no entry is marked "none", **halt and ask the user** to fill it in or explicitly confirm none. This gate prevents silently dropping design context. Note: shape output does not need to be listed here — Node 4.5 step 1 handles it.
+
+3. Stash `ambient_refs` and `design_refs` in `.devflow-state.json` so they survive resume.
+
+### Nodes 5–7 — Dispatch to `dev-flow-implement` subagent (Sonnet)
+
+After Node 4.5 completes, hand off the apply ↔ review ↔ test loop to the `dev-flow-implement` subagent via the Agent tool (`subagent_type: dev-flow-implement`). The subagent runs on Sonnet and owns:
 
 - Node 5: opsx:apply (with TDD + coding style)
 - Node 6: code review
 - Node 7: unit + integration tests
-- Node 8: opsx:archive
-- Node 9: commit pending changes
-- Node 10: `gh pr create`
-- Node 11: return summary
 
-The apply↔review↔test loop stays inside the subagent so loop iterations don't cold-restart and lose context.
+The loop stays inside the subagent so iterations don't cold-restart and lose context. **Nodes 8–11 stay in the orchestrator** — they are linear, single-pass steps that benefit from being visible to the user as they run, and they invoke skills (`opsx:archive`, `git-workflow:git-commit`, `gh pr create`) that are more reliably dispatched from the orchestrator than from a subagent.
 
-**Dispatch brief must include** (subagent starts cold):
-- Change name from Node 3
-- Path to brainstorm spec from Node 1
-- Path to `openspec/changes/<change-name>/tasks.md`
-- Branch name from Node 2
+#### Model contract — do not override
+
+The `dev-flow-implement` agent declares `model: sonnet` in its frontmatter. **That is the contract.** When dispatching, do NOT pass a `model` parameter to the Agent tool — the frontmatter wins. Passing `model: opus` (or anything else) silently breaks the cost/latency profile this skill is calibrated for.
+
+#### Pre-dispatch shadow-skill check
+
+Before dispatching, detect potential skill shadowing for the two skills the subagent invokes (`code-review:code-review`, `opsx:apply`). For each, check whether **both** a standalone version (e.g. `~/.claude/skills/<name>/SKILL.md`) and a plugin version exist. If shadowing is detected, surface a warning to the user listing the duplicates and ask which to use before dispatch — silent ambiguity here causes the wrong skill to run inside the subagent, which is hard to diagnose later.
+
+#### State file (resume contract)
+
+Before dispatch, write `.devflow-state.json` at the repo root with the initial dispatch context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The subagent updates it at every node boundary. This is the **resume contract**: if `SendMessage` to the subagent later fails (agent expired, transport error, blocker-recovery resume), the orchestrator dispatches a fresh `dev-flow-implement` subagent with the state file path and `resume_from_node: <N>` in the brief. Never re-run dev-flow from Node 1 to recover — always resume via state file.
+
+Add `.devflow-state.json` to `.gitignore` if not already present.
+
+#### Dispatch brief must include (subagent starts cold)
+
+- `change_name` from Node 3
+- `spec_path` — brainstorm spec from Node 1
+- `tasks_path` — `openspec/changes/<change-name>/tasks.md`
+- `branch` from Node 2
+- `state_file` — path to `.devflow-state.json`
+- **`ambient_refs`** — auto-detected project docs (DESIGN.md, PRODUCT.md). Subagent must Read each before Node 5 and treat as binding constraints on the implementation.
+- **`design_refs`** — this change's specific design inputs (shape.md, mockups, reference components, design tokens, API contracts, schemas). Subagent must Read each local file before Node 5. URL entries that aren't fetchable surface as a verification-only note (not a blocker).
+- **Environment-readiness expectation**: explicit instruction to run pre-flight (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md` before the first test run in Node 7
 - Loop limits reference (`references/loop-limits.md`)
 - Test detection reference (`references/test-detection.md`)
 
-**On return:** the subagent gives back branch name, PR URL, archived change name, and iteration counts. Update todos 5–11 to `completed`, then run Node 11 in the orchestrator: print that summary verbatim to the user.
+#### Subagent return payload
 
-**On halt/blocker:** if the subagent returns a blocker (loop limit hit, unresolvable test failure, etc.), surface it to the user verbatim and stop — **except** for the two structured skill-invocation blockers below, which the orchestrator handles by running the skill itself and resuming the same subagent.
+On success the subagent returns:
+
+```json
+{
+  "iterations": {"apply": N, "review": N, "test": N},
+  "specialists": [{"name": "...", "verdict": "...", "attempts": N}, ...],
+  "test_output_tail": "<last ~50 lines of final passing test run>",
+  "deviations": ["..."]
+}
+```
+
+Validate: `specialists` must be non-empty, `test_output_tail` must be non-empty. Missing fields → `SendMessage` (or fresh-subagent resume via state file) asking the subagent to refill from `.devflow-state.json`. A bare "all green" return is forbidden.
+
+After validation, mark Nodes 5–7 todos `completed` and proceed to Node 8 in the orchestrator.
+
+**On halt/blocker:** if the subagent returns a blocker (loop limit hit, unresolvable test failure, etc.), surface it to the user verbatim and stop — **except** for `node6_blocker` below, which the orchestrator handles by running the skill itself and resuming the same subagent.
 
 #### `node6_blocker` — code-review skill couldn't run inside subagent
 
@@ -104,24 +171,41 @@ When the subagent returns `{"node6_blocker": true, "agentId": "<id>", "error": "
 
 1. Invoke `code-review:code-review` skill **directly in the orchestrator** (the orchestrator has Agent-tool access and can dispatch the specialist subagents the skill requires). Do **not** inline-review yourself.
 2. After the skill returns results, resume the original subagent via `SendMessage` to the returned `agentId`, passing the review results and an instruction to continue from Node 7. Do **not** spawn a new subagent — the original still holds the implementation context.
-3. Only mark Node 6 todo `completed` after the skill has actually run and specialist results are in hand.
-
-#### `node9_blocker` — git-commit skill couldn't run inside subagent
-
-When the subagent returns `{"node9_blocker": true, "agentId": "<id>", "error": "..."}`:
-
-1. Invoke `git-workflow:git-commit` skill **directly in the orchestrator**. Do **not** run raw `git commit`.
-2. After commits land, resume the original subagent via `SendMessage` to the returned `agentId` with instruction to continue from Node 10.
-3. Only mark Node 9 todo `completed` after the skill has actually committed.
+3. **`SendMessage` fallback**: if `SendMessage` to that `agentId` fails (agent expired/unreachable), dispatch a fresh `dev-flow-implement` subagent with `resume_from_node: 7`, the state file path, and the review results inlined into the brief. Do not restart from Node 5.
+4. Only mark Node 6 todo `completed` after the skill has actually run and specialist results are in hand.
 
 #### Orchestrator-fallback guardrail (rare path)
 
-If for any reason the orchestrator ends up handling Node 6 or Node 9 directly (e.g. subagent crashed, partial recovery), the same skill rules still apply:
+If for any reason the orchestrator ends up handling Node 6 directly (e.g. subagent crashed, partial recovery), it **must** invoke `code-review:code-review`. Inline single-pass review is forbidden. If the orchestrator itself cannot invoke the skill, halt and surface the error verbatim — never silently degrade.
 
-- Node 6 → must invoke `code-review:code-review`. Inline single-pass review is forbidden.
-- Node 9 → must invoke `git-workflow:git-commit`. Raw `git commit` is forbidden.
+### Node 8 — opsx:archive (orchestrator)
 
-If the orchestrator itself cannot invoke the skill, halt and surface the error verbatim to the user — never silently degrade.
+Invoke `opsx:archive`. Single call, no loop. Print result to the user.
+
+### Node 9 — Commit pending changes (orchestrator)
+
+Check `git status`. Clean tree → skip to Node 10.
+
+If anything is uncommitted (typically the archive's file moves, plus any spec/plan files the user wants tracked), invoke `git-workflow:git-commit` skill **directly**. Do **not** run raw `git commit` — the skill enforces Conventional Commits format, logical splitting, and user confirmation; bypassing it breaks the contract.
+
+If `git-workflow:git-commit` cannot be invoked, halt and surface the error to the user verbatim. Never fall back to raw `git commit`.
+
+### Node 10 — Open PR (orchestrator)
+
+Run `gh pr create`. Title derived from the change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan. Print the PR URL to the user.
+
+### Node 11 — Summary (orchestrator)
+
+Print a final summary to the user containing:
+
+- `branch` — branch name from Node 2
+- `pr_url` — from Node 10
+- `change_name` — from Node 3
+- `iterations` — from subagent payload
+- `commit_shas` — `git log <base>..HEAD --format=%H`
+- `specialists` — from subagent payload
+- `test_output_tail` — from subagent payload
+- `deviations` — subagent's, plus any added by orchestrator at Nodes 8–10
 
 ## Loops & limits
 
