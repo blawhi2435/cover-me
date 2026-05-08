@@ -118,7 +118,7 @@ Apply loop limit per `references/loop-limits.md`.
 Follow `references/test-detection.md` end-to-end:
 
 1. **Pre-flight environment readiness** (lockfile install, container services up, env vars, migrations) — halt on any failure.
-2. Locate test commands.
+2. Locate test commands. Use the **"Full suite"** entry from CLAUDE.md's `## Test Commands` section (not the "Scoped" entry — that is Node 5's). If the section is missing or has only one entry, run `references/test-detection.md` to populate both before continuing.
 3. Run unit tests, then integration tests. Capture stdout+stderr.
 4. **Silent-skip detection**: grep output for runner-specific skip patterns. Any unannotated skip = failure.
 5. Capture **tail of test output (last ~50 lines)** — this is required evidence for Node 11.
