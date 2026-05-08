@@ -60,16 +60,19 @@ Both skills must remain active for the entire apply phase.
 
 ## Node 5 — opsx:apply
 
-Invoke `opsx:apply`. Per sub-task cycle:
+Invoke `opsx:apply`. The inner loop is **per Task**, not per sub-task. Each Task in `tasks.md` is structured `N.1 write failing test / N.2 implement / N.3 refactor` (per dev-flow's Rule B). Use the **scoped** test command from CLAUDE.md's `## Test Commands` section — never the full-suite command — substituting the Task's test file path.
 
-1. Write the failing test (per the test-first structure already in tasks.md).
-2. Write minimum code to pass, applying coding-style rules as you write.
-3. Run the test — confirm it passes before moving on.
-4. Refactor if needed, keeping coding-style rules applied.
+Per Task N (one cycle):
 
-Run tests **after each sub-task**, not after the whole task.
+1. **N.1 — Write failing test.** Run the scoped command for that test file. **MUST observe red.** If the run goes green, the test does not actually exercise the behavior (common cause: assertion against a mock that always returns the expected shape, or a missing `await`). Fix the test before continuing — do not move to N.2.
+2. **N.2 — Implement minimum code.** Re-run the same scoped command. **MUST observe green.** Apply coding-style rules as you write.
+3. **N.3 — Refactor (if needed).** Re-run the scoped command after each refactor step. **MUST stay green.** Keep coding-style rules applied.
 
-Tasks annotated `<!-- TDD skipped: <reason> -->` (typically schema/migration/config/docs) follow the task as written without forcing a test cycle.
+The scoped command is whatever the project's CLAUDE.md `## Test Commands` "Scoped" line specifies, with `<file>` substituted. If CLAUDE.md is missing the Scoped line, run `references/test-detection.md` end-to-end to populate it before continuing — do not fall back to the full suite for the inner loop.
+
+Tasks annotated `<!-- TDD skipped: <reason> -->` (typically schema/migration/config/docs) follow the task as written without the red/green cycle.
+
+**Do not run the full suite during Node 5.** That is Node 7's job.
 
 ## Node 6 — Code review
 
