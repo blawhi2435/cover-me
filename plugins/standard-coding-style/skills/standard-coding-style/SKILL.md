@@ -1,6 +1,6 @@
 ---
 name: standard-coding-style
-description: Enforce coding standards and best practices during AI-assisted development. Use when writing new code, reviewing existing code, refactoring code, or implementing features. Ensures adherence to TDD, KISS, DRY, YAGNI principles, and detects common code smells like long functions, deep nesting, and magic numbers. Apply to all programming tasks involving code creation or modification.
+description: Enforce coding standards and best practices during AI-assisted development. Use when writing new code, reviewing existing code, refactoring code, or implementing features in any supported language (currently Go and TypeScript; principles apply to all). Ensures adherence to TDD, KISS, DRY, YAGNI, error-handling discipline, and detects common code smells like long functions, deep nesting, and magic numbers. Apply to all programming tasks involving code creation or modification.
 ---
 
 # Standard Coding Style
@@ -15,11 +15,13 @@ Enforce coding standards and best practices for AI-assisted development.
 3. **DRY** - Don't repeat yourself
 4. **YAGNI** - You aren't gonna need it
 5. **Readability First** - Code is read more than written
+6. **Error Handling** - Never swallow errors; wrap with context; validate at boundaries only
 
 **Code Smells to Avoid:**
 - Functions > 50 lines
 - Nesting > 3-4 levels
 - Magic numbers without constants
+- Swallowed/ignored errors, or errors propagated without context
 
 ## Workflow
 
@@ -29,8 +31,16 @@ When writing, reviewing, or refactoring code:
 
 **Read the detailed standards:**
 ```
-references/coding-standards.md
+references/coding-standards.md           # language-agnostic principles (always read)
+references/<language>.md                 # language-specific examples and idioms
 ```
+
+Detect the language from the files you are about to touch and read the matching reference. Available:
+
+- `references/go.md` — Go examples + Go Clean Architecture (handler/service/repository)
+- `references/typescript.md` — TS strictness, `any`/`unknown`, async error handling, React notes
+
+If the project mixes languages, read every relevant reference. If a language has no reference yet, apply the language-agnostic principles and follow existing project conventions.
 
 **Key checks:**
 - ✅ Tests written first (TDD)
@@ -46,6 +56,7 @@ references/coding-standards.md
 - Split long functions (>50 lines) → smaller functions
 - Use early returns → avoid deep nesting
 - Name constants → no magic numbers
+- Check every error, wrap with context → no silent failures
 - Question complexity → KISS
 
 ### 3. After Writing Code
@@ -56,97 +67,17 @@ references/coding-standards.md
 - [ ] Nesting < 4 levels
 - [ ] No magic numbers
 - [ ] No repeated logic
+- [ ] Every error checked and wrapped with context; no silent swallows
+- [ ] Input validation only at system boundaries
 - [ ] Clear variable/function names
 - [ ] No premature optimization
 
-## Common Patterns
-
-### ✅ Good: Early Returns
-
-```go
-func ProcessRequest(user *User) error {
-    if user == nil {
-        return errors.New("user is nil")
-    }
-    if !user.IsAdmin {
-        return errors.New("not admin")
-    }
-    // Process
-    return nil
-}
-```
-
-### ❌ Bad: Deep Nesting
-
-```go
-func ProcessRequest(user *User) error {
-    if user != nil {
-        if user.IsAdmin {
-            // Process
-            return nil
-        }
-    }
-    return errors.New("invalid")
-}
-```
-
-### ✅ Good: Named Constants
-
-```go
-const MaxRetries = 3
-
-func Retry() {
-    if count > MaxRetries {
-        return
-    }
-}
-```
-
-### ❌ Bad: Magic Numbers
-
-```go
-func Retry() {
-    if count > 3 {  // What does 3 mean?
-        return
-    }
-}
-```
-
 ## Detailed Standards
 
-For complete guidelines including:
-- TDD testing requirements
-- Code quality principles (KISS, DRY, YAGNI, Readability)
-- Code smell detection patterns
-- Language-specific examples
+For complete guidelines, read in this order:
 
-Read: `references/coding-standards.md`
-
-## Go Clean Architecture (Layered API Servers)
-
-When implementing handler → service → repository layers:
-
-### Data passing between layers
-
-- **Use `domain` structs** for any structured data crossing layer boundaries. Never create custom input/output structs (e.g. `CreateXxxInput`, `ListXxxInput`) in the service or handler layer. If a struct is needed, use or extend a type in `common/domain/`.
-- **Simple scalars are fine** — IDs, names, status strings can be passed as individual function arguments.
-- **No custom filter structs** — filter fields (e.g. `nodeID`, `name`, `status`) are passed as separate primitives alongside pagination params. Never bundle them into a one-off `XxxListFilter` struct in the interfaces or service layer.
-
-### Pagination
-
-- Always use the project's shared pagination type (e.g. `params.ListQueryParams`) — never pass `limit`/`offset` as loose `int` arguments across layers.
-- Viewmodel request structs must implement a `ToListQueryParams()` converter method.
-- Handler calls `request.ToListQueryParams()` and passes the result down to service → repository unchanged.
-
-### Reference pattern (list API)
-
-```
-Handler:    h.Service.ListXxx(ctx, filterField string, request.ToListQueryParams())
-Service:    s.XxxRepository.ListXxx(ctx, filterField string, queryParams)
-Repository: func ListXxx(ctx, filterField string, queryParams params.ListQueryParams)
-```
-
-Before coding a new list endpoint, read an existing one (e.g. `QueryUsers`, `QueryGroups`) to confirm the exact pattern used in the project.
+1. `references/coding-standards.md` — language-agnostic principles (TDD, KISS/DRY/YAGNI, error handling, code smells)
+2. `references/<language>.md` — concrete examples and language-specific idioms for the file(s) you are touching
 
 ## When in Doubt
 

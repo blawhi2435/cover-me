@@ -1,6 +1,11 @@
 # Coding Standards and Best Practices
 
-This document provides coding standards and best practices for AI-assisted development. Follow these guidelines when writing, reviewing, or refactoring code.
+This document provides language-agnostic coding standards for AI-assisted development. Follow these guidelines when writing, reviewing, or refactoring code.
+
+For language-specific examples and idioms, read the matching reference alongside this file:
+
+- Go: `references/go.md`
+- TypeScript: `references/typescript.md`
 
 ## Core Development Principles
 
@@ -19,6 +24,17 @@ Write tests first, then implementation. This is non-negotiable.
 - Tests should be isolated and fast
 - Each component should be testable independently
 
+### 3. Error Handling
+**Never swallow errors. Propagate with context. Validate only at boundaries.**
+
+Guidelines:
+- Every returned/thrown error must be checked or caught deliberately. Silencing failures (`_ = doThing()`, empty `catch {}`, floating promises, ignored return values) is forbidden.
+- Wrap errors with context as they cross layers so the chain reads as a story of what failed and why. The exact mechanism is language-specific (see language references).
+- Handle errors at the level that can actually decide what to do — usually the handler/entrypoint, not deep in helpers. Lower layers propagate; upper layers translate to user-visible responses, retries, or logs.
+- Validate inputs at system boundaries (HTTP handlers, CLI args, message consumers, external API responses, deserialized payloads). Trust internal callers — do not re-validate the same value at every layer.
+- Do not add defensive checks for conditions that cannot happen given the type system or upstream guarantees. Dead error paths are noise.
+- Fail loudly in unrecoverable states. Do not return zero values, empty collections, `nil`/`null`/`undefined`, or default fallbacks to paper over a real failure.
+
 ## Code Quality Principles
 
 ### 1. Readability First
@@ -28,7 +44,7 @@ Guidelines:
 - Use clear, descriptive variable and function names
 - Prefer self-documenting code over comments
 - Maintain consistent formatting throughout the codebase
-- Follow language-specific naming conventions (e.g., camelCase, PascalCase, snake_case)
+- Follow the language's idiomatic naming conventions (e.g., camelCase, PascalCase, snake_case)
 
 ### 2. KISS (Keep It Simple, Stupid)
 **Choose the simplest solution that works.**
@@ -59,100 +75,19 @@ Guidelines:
 
 ## Code Smell Detection
 
-Watch for these anti-patterns and refactor when detected:
+Watch for these anti-patterns and refactor when detected. Concrete code examples live in the language-specific references.
 
 ### 1. Long Functions
 Functions should rarely exceed 50 lines. If they do, break them into smaller, focused functions.
 
-```go
-// ❌ BAD: Function > 50 lines
-func ProcessMarketData(data []byte) error {
-    // 100+ lines of validation, transformation, and storage
-    // ...
-    return nil
-}
-
-// ✅ GOOD: Split into smaller, focused functions
-func ProcessMarketData(data []byte) error {
-    validated, err := validateData(data)
-    if err != nil {
-        return err
-    }
-
-    transformed := transformData(validated)
-    return saveData(transformed)
-}
-```
-
 ### 2. Deep Nesting
-Avoid nesting beyond 3-4 levels. Use early returns and guard clauses.
-
-```go
-// ❌ BAD: 5+ levels of nesting
-func ProcessRequest(user *User, market *Market) error {
-    if user != nil {
-        if user.IsAdmin {
-            if market != nil {
-                if market.IsActive {
-                    if hasPermission(user, market) {
-                        // Do something
-                        return nil
-                    }
-                }
-            }
-        }
-    }
-    return errors.New("invalid request")
-}
-
-// ✅ GOOD: Early returns with guard clauses
-func ProcessRequest(user *User, market *Market) error {
-    if user == nil {
-        return errors.New("user is nil")
-    }
-    if !user.IsAdmin {
-        return errors.New("user is not admin")
-    }
-    if market == nil {
-        return errors.New("market is nil")
-    }
-    if !market.IsActive {
-        return errors.New("market is not active")
-    }
-    if !hasPermission(user, market) {
-        return errors.New("permission denied")
-    }
-
-    // Do something
-    return nil
-}
-```
+Avoid nesting beyond 3-4 levels. Use early returns and guard clauses instead of pyramid `if`s.
 
 ### 3. Magic Numbers
-Never use unexplained numeric literals. Always use named constants.
+Never use unexplained numeric literals. Always use named constants with names that explain intent (`MaxRetries`, not `THREE`).
 
-```go
-// ❌ BAD: Unexplained numbers
-func RetryOperation() {
-    if retryCount > 3 {
-        return
-    }
-    time.Sleep(500 * time.Millisecond)
-}
-
-// ✅ GOOD: Named constants with clear intent
-const (
-    MaxRetries      = 3
-    RetryDelayMs    = 500
-)
-
-func RetryOperation() {
-    if retryCount > MaxRetries {
-        return
-    }
-    time.Sleep(RetryDelayMs * time.Millisecond)
-}
-```
+### 4. Swallowed Errors
+Any error that is caught and discarded, ignored return value, or floating async result is a code smell. Either handle it meaningfully or propagate it.
 
 ## Summary
 
@@ -174,4 +109,4 @@ Clear, maintainable code enables:
 
 ---
 
-*These principles apply to all programming languages and paradigms. Adapt examples to your specific language and framework while maintaining the core concepts.*
+*These principles apply to all programming languages. For language-specific examples and idioms (error wrapping, null handling, async patterns, framework conventions), read the matching reference file.*
