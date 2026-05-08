@@ -18,9 +18,38 @@ Find the script(s) that exercise unit and integration tests for the current proj
 
 ## Caching the result
 
-After detection, append the discovered command to the project's CLAUDE.md under a `## Test Commands` heading (create the section if missing). On future dev-flow runs, Node 7 reads CLAUDE.md first and skips re-detection.
+After detection, append BOTH a full-suite command and a scoped template to the
+project's CLAUDE.md under a `## Test Commands` heading (create the section if
+missing). The format is:
 
-If the user has explicitly excluded auto-edits to CLAUDE.md, store the path in conversation memory instead and surface it to the user.
+```
+## Test Commands
+- Full suite (Node 7 gate): <full-suite command>
+- Scoped (Node 5 inner loop): <scoped template> — substitute the test file path per Task
+```
+
+The full-suite command is what the search order in the previous section
+produces. The scoped template is mechanically derived from the runner:
+
+| Runner | Scoped template |
+|---|---|
+| Vitest | `<pkg-mgr> vitest run <file>` |
+| Jest | `<pkg-mgr> jest <file>` |
+| Mocha | `<pkg-mgr> mocha <file>` |
+| Go | `go test <package>` (use the package path of the file under test) |
+| Pytest | `pytest <file>` |
+| Cargo | `cargo test --test <name>` |
+| Bun test | `bun test <file>` |
+
+If the project's runner has no obvious scoped form, fall back to the full-suite
+command for inner loop too and add `"scoped form unknown for runner X"` to
+`evidence.deviations` so the orchestrator surfaces it.
+
+On future dev-flow runs, Node 7 reads the "Full suite" line; Node 5 reads the
+"Scoped" line and substitutes the current Task's test file path.
+
+If the user has explicitly excluded auto-edits to CLAUDE.md, store both
+commands in conversation memory instead and surface them to the user.
 
 ## Environment readiness (pre-flight)
 
