@@ -89,3 +89,14 @@ Implementation: capture stdout+stderr of the test command, run the grep, and inc
 - If unit fails, do not run integration; report unit failure and loop back to Node 5.
 - After each run, apply silent-skip detection. Treat hits as failure.
 - Always return the **tail of test output (last ~50 lines)** to the orchestrator alongside pass/fail — never just "all green".
+
+## Frontend test perf notes
+
+If the project uses Vitest with jsdom/happy-dom and the full-suite run is slow
+or memory-heavy, consider these flags. **Do not auto-apply** — surface to the
+user and let them decide whether to add them to the cached command:
+
+- `--pool=forks --poolOptions.forks.singleFork=true` — single worker, lower memory
+- `--no-isolate` — skip module isolation between tests; faster but tests must be hygienic (no cross-test global state)
+
+These are advisory. The skill does not modify the user's cached command without their explicit approval.
