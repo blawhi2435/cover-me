@@ -1,5 +1,5 @@
 {
   "name": "dev-flow",
   "description": "Full delivery workflow from spec design through PR — brainstorm, branch, TDD, code review, and PR open",
-  "version": "1.3.0"
+  "version": "1.4.0"
 }
