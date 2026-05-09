@@ -54,7 +54,7 @@ Before any code work:
 1. **Read every `ambient_refs` and `design_refs` local file.** These are binding constraints — the implementation must match what they specify (visual design, component conventions, API contracts, schemas). For URL entries that can't be fetched, record them in `evidence.deviations` as verification-only items and continue.
 2. Load via the Skill tool, in order:
    - `superpowers:test-driven-development`
-   - `standard-coding-style:standard-coding-style`
+   - `coding-god:standard-coding-style`
 
 Both skills must remain active for the entire apply phase.
 
@@ -76,16 +76,16 @@ Tasks annotated `<!-- TDD skipped: <reason> -->` (typically schema/migration/con
 
 ## Node 6 — Code review
 
-You **must actually attempt** to invoke the skill exactly named `code-review:code-review` (it self-selects lightweight vs security mode). Do not pre-judge availability — make the call.
+You **must actually attempt** to invoke the skill exactly named `coding-god:code-review` (it self-selects lightweight vs security mode). Do not pre-judge availability — make the call.
 
-**Scope is this change only, not the whole project.** When invoking, explicitly tell `code-review:code-review` to review:
+**Scope is this change only, not the whole project.** When invoking, explicitly tell `coding-god:code-review` to review:
 
 - All uncommitted changes in the working tree, **plus**
 - Any commits on the current branch since it diverged from `main` (i.e. `git diff main...HEAD` + working tree).
 
 Do not let the skill default to scanning the entire repo. If the skill asks for a target, give it the diff range above. The branch was created fresh from `main` in dev-flow Node 2, so this range is exactly the change under review.
 
-**Do not substitute** any other code-review skill, subagent, generic "review the code" prompt, inline single-pass scan, or external tool — even if another skill with a similar name (e.g. `review`, `security-review`, `*-code-review`) is available. This node is calibrated against `code-review:code-review` specifically; using anything else silently changes the review contract.
+**Do not substitute** any other code-review skill, subagent, generic "review the code" prompt, inline single-pass scan, or external tool — even if another skill with a similar name (e.g. `review`, `security-review`, `*-code-review`) is available. This node is calibrated against `coding-god:code-review` specifically; using anything else silently changes the review contract.
 
 The skill itself dispatches specialist subagents (logic / style / test / security) in parallel. **Inline single-pass review is forbidden** even if it feels faster — the skill explicitly says "NEVER review code in a single pass in the main conversation."
 
@@ -155,5 +155,5 @@ Source these from `.devflow-state.json` `evidence.*` which you've been updating 
 
 - Loop limit exceeded at Node 6 or 7 → halt, return the loop state to the orchestrator. Do not loop indefinitely.
 - Unresolvable blocker (test you cannot make pass, ambiguous requirement, missing dependency) → halt, return the blocker verbatim.
-- `code-review:code-review` cannot be invoked at Node 6 → halt with the structured `node6_blocker` payload. Never fall back to inline review.
+- `coding-god:code-review` cannot be invoked at Node 6 → halt with the structured `node6_blocker` payload. Never fall back to inline review.
 - Never write feature code outside the TDD cycle. Never skip review or tests to "get unstuck."
