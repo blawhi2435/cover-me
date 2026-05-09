@@ -12,6 +12,12 @@
       "source": "./plugins/coding-god",
       "description": "Full-stack coding workflow — dev-flow, code review, coding style, and git",
       "category": "development"
+    },
+    {
+      "name": "claude-notify",
+      "source": "./plugins/claude-notify",
+      "description": "Desktop notifications when Claude Code needs your input or finishes a task",
+      "category": "development"
     }
   ]
 }
