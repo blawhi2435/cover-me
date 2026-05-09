@@ -1,0 +1,5 @@
+{
+  "name": "claude-notify",
+  "description": "Desktop notifications when Claude Code needs your input or finishes a task (macOS / Linux)",
+  "version": "1.0.0"
+}
