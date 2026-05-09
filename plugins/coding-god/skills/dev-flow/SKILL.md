@@ -143,6 +143,7 @@ Add `.devflow-state.json` to `.gitignore` if not already present.
 - **`ambient_refs`** — auto-detected project docs (DESIGN.md, PRODUCT.md). Subagent must Read each before Node 5 and treat as binding constraints on the implementation.
 - **`design_refs`** — this change's specific design inputs (shape.md, mockups, reference components, design tokens, API contracts, schemas). Subagent must Read each local file before Node 5. URL entries that aren't fetchable surface as a verification-only note (not a blocker).
 - **Environment-readiness expectation**: explicit instruction to run pre-flight (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md` before the first test run in Node 7
+- **`frontend_hands_on` flag** — default omit (subagent auto-detects). Pass `frontend_hands_on: skip` only if the user has explicitly opted out for this change; the subagent will then record it as a deviation rather than running the UI driver.
 - Loop limits reference (`references/loop-limits.md`)
 - Test detection reference (`references/test-detection.md`)
 
@@ -155,11 +156,12 @@ On success the subagent returns:
   "iterations": {"apply": N, "review": N, "test": N},
   "specialists": [{"name": "...", "verdict": "...", "attempts": N}, ...],
   "test_output_tail": "<last ~50 lines of final passing test run>",
+  "frontend_hands_on": {"scenarios": [...], "results": [...], "screenshots": [...]} | "n/a — no UI surface touched" | "skipped per user",
   "deviations": ["..."]
 }
 ```
 
-Validate: `specialists` must be non-empty, `test_output_tail` must be non-empty. Missing fields → `SendMessage` (or fresh-subagent resume via state file) asking the subagent to refill from `.devflow-state.json`. A bare "all green" return is forbidden.
+Validate: `specialists` must be non-empty, `test_output_tail` must be non-empty, `frontend_hands_on` must be present (evidence object with all-pass results, or one of the two sentinels). Missing fields → `SendMessage` (or fresh-subagent resume via state file) asking the subagent to refill from `.devflow-state.json`. A bare "all green" return is forbidden.
 
 After validation, mark Nodes 5–7 todos `completed` and proceed to Node 8 in the orchestrator.
 
@@ -205,6 +207,7 @@ Print a final summary to the user containing:
 - `commit_shas` — `git log <base>..HEAD --format=%H`
 - `specialists` — from subagent payload
 - `test_output_tail` — from subagent payload
+- `frontend_hands_on` — from subagent payload (scenarios + per-scenario verdict + screenshot paths, or the `n/a` / `skipped` sentinel)
 - `deviations` — subagent's, plus any added by orchestrator at Nodes 8–10
 
 ## Loops & limits

@@ -122,11 +122,56 @@ Follow `references/test-detection.md` end-to-end:
 3. Run unit tests, then integration tests. Capture stdout+stderr.
 4. **Silent-skip detection**: grep output for runner-specific skip patterns. Any unannotated skip = failure.
 5. Capture **tail of test output (last ~50 lines)** — this is required evidence for Node 11.
+6. **Frontend hands-on operation test (when applicable)** — see section below. Required before declaring Node 7 pass on any frontend-touching change.
 
 Outcomes:
 - Pre-flight fails → halt, return blocker with the pre-flight error.
 - Tests fail OR silent-skips detected → return to Node 5 with failure summary + output tail.
-- Pass with no skips → write output tail into `.devflow-state.json` `evidence.test_output_tail`, proceed to Node 8.
+- Frontend hands-on test fails (console errors / golden path broken / visual mismatch) → return to Node 5 with the failure trace + screenshot path.
+- Pass with no skips AND (if applicable) frontend hands-on test green → write output tail + `frontend_hands_on` evidence into `.devflow-state.json`, proceed to Node 8.
+
+### Node 7.5 — Frontend hands-on operation test
+
+Automated unit/integration tests catch regressions but not "the button does nothing when clicked", "the form submits but the success toast never renders", or "looks broken in the browser". This step closes that gap by **actually driving the UI**.
+
+**Detection — does this change need it?** Yes if any of:
+
+- `design_refs` contains a mockup, reference component, or design token entry, OR
+- `tasks.md` or the diff (`git diff main...HEAD`) touches files matching `**/*.{tsx,jsx,vue,svelte,astro}`, `src/app/**`, `src/pages/**`, `src/components/**`, or any route/page/layout file, OR
+- The brainstorm spec's `## References` section was non-empty for UI items.
+
+If none match → record `"frontend_hands_on": "n/a — no UI surface touched"` in state and skip the rest of this section.
+
+**Step 1 — Brainstorm scenarios from the spec.** Re-read `spec_path` and `design_refs`. List the operational scenarios to verify:
+
+1. **Golden path** — the primary user flow the change enables (always required).
+2. **2–3 edge cases** drawn from the spec's acceptance criteria / non-goals / known constraints (e.g. empty state, error state, loading state, validation failure, permission boundary).
+3. **Visual regression spot-checks** — pages or components in `design_refs` that should match the mockup (alignment, spacing, typography per the design ref).
+
+Write the scenario list to `.devflow-state.json` `evidence.frontend_hands_on.scenarios` before executing. If the spec is too thin to derive scenarios, halt and return a blocker asking the orchestrator to clarify with the user — do not invent scenarios.
+
+**Step 2 — Bring up the dev server.** Use the project's dev command (CLAUDE.md `## Dev Commands` if present, else `package.json` `scripts.dev`). Run in background. Wait for the ready signal (URL printed, port open). If a dev command cannot be found, run `references/test-detection.md`-style search and ask the user.
+
+**Step 3 — Drive the UI.** Invoke `document-skills:webapp-testing` (Playwright). For each scenario:
+
+- Navigate, perform the actions, assert the visible outcome.
+- Capture `browser_console_messages` after each scenario — any `error`-level message that isn't pre-existing-baseline is a failure.
+- Capture `browser_network_requests` — any 4xx/5xx on a request the scenario triggered is a failure unless the scenario is explicitly testing that error.
+- Take a screenshot at the final state of each scenario; store paths under `.devflow-state.json` `evidence.frontend_hands_on.screenshots`.
+
+**Step 4 — Record evidence.** Append to state:
+
+```json
+"frontend_hands_on": {
+  "scenarios": ["golden: ...", "edge: empty list", "edge: 401 response", "visual: settings page"],
+  "results": [{"scenario": "...", "verdict": "pass|fail", "console_errors": [], "screenshot": "..."}],
+  "dev_server_log_tail": "<last ~30 lines>"
+}
+```
+
+Any scenario `fail` → loop back to Node 5 with the failing scenario + console/network excerpt + screenshot path. Do not retry hands-on more than the Node 7 loop limit.
+
+**Skip flag.** If the user explicitly tells the orchestrator "skip frontend hands-on for this change" (surfaced via dispatch brief as `frontend_hands_on: skip`), record `"frontend_hands_on": "skipped per user"` in `evidence.deviations` and proceed. Default is **not skipped**.
 
 A bare "all green" return is forbidden — the orchestrator will reject it. Always include the captured tail.
 
@@ -141,12 +186,14 @@ After Node 7 passes, return to the orchestrator (do not print to the user — th
   "iterations": {"apply": N, "review": N, "test": N},
   "specialists": [{"name": "...", "verdict": "...", "attempts": N}, ...],
   "test_output_tail": "<last ~50 lines of the final passing test run>",
+  "frontend_hands_on": {"scenarios": [...], "results": [...], "screenshots": [...]} | "n/a — no UI surface touched" | "skipped per user",
   "deviations": ["..."]
 }
 ```
 
 - `specialists` must be non-empty (every code-review specialist that ran in Node 6).
 - `test_output_tail` must be non-empty.
+- `frontend_hands_on` must be present — either an evidence object (all scenarios `pass`), the `n/a` sentinel, or the explicit `skipped per user` sentinel. Missing field → orchestrator rejects the payload.
 - A bare "all green" return is forbidden — the orchestrator will reject it and ask you to refill from `.devflow-state.json`.
 
 Source these from `.devflow-state.json` `evidence.*` which you've been updating throughout.
