@@ -7,6 +7,10 @@ description: Use when the user wants to implement a new feature, fix a bug, or b
 
 Orchestrates an 11-node delivery workflow. This skill **never writes code directly** — it dispatches to other skills and tracks progress with TodoWrite.
 
+## Prerequisites
+
+- Playwright MCP server must be installed and connected for Node 7.5 (frontend hands-on test). Install via the marketplace (e.g. `/plugin install playwright`), which provides the `mcp__plugin_playwright_playwright__browser_*` tools. Without it, any frontend-touching change halts at Node 7.5 with a blocker — the workflow does NOT silently fall back to writing Python scripts.
+
 ## Announce
 
 At start: "Using dev-flow skill to drive the feature delivery workflow."
