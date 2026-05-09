@@ -407,4 +407,3 @@ Expected: 看到 Task 1–5 的 5 個 feat/docs commit 都在。
 - ✅ Spec §「`marketplace.json` 改動」 → Task 4
 - ✅ Spec §「`README.md` 改動」 → Task 5
 - ✅ Spec §「驗證」 → Task 2 (steps 4–6), Task 6
-- ✅ Spec §「已知風險：plugin-bundled hooks 格式不確定性」 → 由實作者在 Task 3 對照官方規格決定最終位置；spec 已授權微調
