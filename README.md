@@ -13,6 +13,7 @@ A Claude Code plugin marketplace with AI coding workflow tools.
 | Plugin | Description |
 |--------|-------------|
 | `coding-god` | Full-stack coding workflow — dev-flow, code review, coding style, and git |
+| `claude-notify` | Desktop notifications when Claude Code needs your input or finishes a task |
 
 ## Dependencies
 
@@ -23,10 +24,11 @@ A Claude Code plugin marketplace with AI coding workflow tools.
 
 ## Usage
 
-After adding the marketplace, install the plugin:
+After adding the marketplace, install the plugins you want:
 
 ```
 /plugin install coding-god@cover-me
+/plugin install claude-notify@cover-me
 ```
 
 Update to latest versions:
