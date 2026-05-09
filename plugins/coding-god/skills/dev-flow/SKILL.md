@@ -117,7 +117,7 @@ After Node 4.5 completes, hand off the apply ↔ review ↔ test loop to the `de
 - Node 6: code review
 - Node 7: unit + integration tests
 
-The loop stays inside the subagent so iterations don't cold-restart and lose context. **Nodes 8–11 stay in the orchestrator** — they are linear, single-pass steps that benefit from being visible to the user as they run, and they invoke skills (`opsx:archive`, `git-workflow:git-commit`, `gh pr create`) that are more reliably dispatched from the orchestrator than from a subagent.
+The loop stays inside the subagent so iterations don't cold-restart and lose context. **Nodes 8–11 stay in the orchestrator** — they are linear, single-pass steps that benefit from being visible to the user as they run, and they invoke skills (`opsx:archive`, `coding-god:git-commit`, `gh pr create`) that are more reliably dispatched from the orchestrator than from a subagent.
 
 #### Model contract — do not override
 
@@ -125,7 +125,7 @@ The `dev-flow-implement` agent declares `model: sonnet` in its frontmatter. **Th
 
 #### Pre-dispatch shadow-skill check
 
-Before dispatching, detect potential skill shadowing for the two skills the subagent invokes (`code-review:code-review`, `opsx:apply`). For each, check whether **both** a standalone version (e.g. `~/.claude/skills/<name>/SKILL.md`) and a plugin version exist. If shadowing is detected, surface a warning to the user listing the duplicates and ask which to use before dispatch — silent ambiguity here causes the wrong skill to run inside the subagent, which is hard to diagnose later.
+Before dispatching, detect potential skill shadowing for the two skills the subagent invokes (`coding-god:code-review`, `opsx:apply`). For each, check whether **both** a standalone version (e.g. `~/.claude/skills/<name>/SKILL.md`) and a plugin version exist. If shadowing is detected, surface a warning to the user listing the duplicates and ask which to use before dispatch — silent ambiguity here causes the wrong skill to run inside the subagent, which is hard to diagnose later.
 
 #### State file (resume contract)
 
@@ -169,14 +169,14 @@ After validation, mark Nodes 5–7 todos `completed` and proceed to Node 8 in th
 
 When the subagent returns `{"node6_blocker": true, "agentId": "<id>", "error": "..."}`:
 
-1. Invoke `code-review:code-review` skill **directly in the orchestrator** (the orchestrator has Agent-tool access and can dispatch the specialist subagents the skill requires). Do **not** inline-review yourself.
+1. Invoke `coding-god:code-review` skill **directly in the orchestrator** (the orchestrator has Agent-tool access and can dispatch the specialist subagents the skill requires). Do **not** inline-review yourself.
 2. After the skill returns results, resume the original subagent via `SendMessage` to the returned `agentId`, passing the review results and an instruction to continue from Node 7. Do **not** spawn a new subagent — the original still holds the implementation context.
 3. **`SendMessage` fallback**: if `SendMessage` to that `agentId` fails (agent expired/unreachable), dispatch a fresh `dev-flow-implement` subagent with `resume_from_node: 7`, the state file path, and the review results inlined into the brief. Do not restart from Node 5.
 4. Only mark Node 6 todo `completed` after the skill has actually run and specialist results are in hand.
 
 #### Orchestrator-fallback guardrail (rare path)
 
-If for any reason the orchestrator ends up handling Node 6 directly (e.g. subagent crashed, partial recovery), it **must** invoke `code-review:code-review`. Inline single-pass review is forbidden. If the orchestrator itself cannot invoke the skill, halt and surface the error verbatim — never silently degrade.
+If for any reason the orchestrator ends up handling Node 6 directly (e.g. subagent crashed, partial recovery), it **must** invoke `coding-god:code-review`. Inline single-pass review is forbidden. If the orchestrator itself cannot invoke the skill, halt and surface the error verbatim — never silently degrade.
 
 ### Node 8 — opsx:archive (orchestrator)
 
@@ -186,9 +186,9 @@ Invoke `opsx:archive`. Single call, no loop. Print result to the user.
 
 Check `git status`. Clean tree → skip to Node 10.
 
-If anything is uncommitted (typically the archive's file moves, plus any spec/plan files the user wants tracked), invoke `git-workflow:git-commit` skill **directly**. Do **not** run raw `git commit` — the skill enforces Conventional Commits format, logical splitting, and user confirmation; bypassing it breaks the contract.
+If anything is uncommitted (typically the archive's file moves, plus any spec/plan files the user wants tracked), invoke `coding-god:git-commit` skill **directly**. Do **not** run raw `git commit` — the skill enforces Conventional Commits format, logical splitting, and user confirmation; bypassing it breaks the contract.
 
-If `git-workflow:git-commit` cannot be invoked, halt and surface the error to the user verbatim. Never fall back to raw `git commit`.
+If `coding-god:git-commit` cannot be invoked, halt and surface the error to the user verbatim. Never fall back to raw `git commit`.
 
 ### Node 10 — Open PR (orchestrator)
 
