@@ -69,7 +69,7 @@ plugins/claude-notify/
 }
 ```
 
-實作時須以 Claude Code 對 plugin-bundled hooks 的官方規格為準。若實際格式為 `.claude-plugin/hooks.json` 或其他變體，調整檔案位置但保留上述邏輯。`${CLAUDE_PLUGIN_ROOT}` 由 Claude Code 在 hook 執行時注入，指向 plugin 安裝後的根目錄。
+`${CLAUDE_PLUGIN_ROOT}` 由 Claude Code 在 hook 執行時注入，指向 plugin 安裝後的根目錄。檔案位置與 schema 對齊 [Claude Code plugins reference](https://code.claude.com/docs/en/plugins-reference)。
 
 ## `scripts/claude-notify.sh`
 
@@ -139,10 +139,3 @@ exit 0
 - `marketplace.json` JSON 格式正確、含兩個 plugin entry。
 - 在已安裝 plugin 的 Claude Code session 觸發權限請求 → 收到通知。
 - Claude Code 任務結束 → 收到通知。
-
-## 已知風險
-
-- **plugin-bundled hooks 格式不確定性：** Claude Code 對 plugin 內 hooks 的載入位置可能是 `hooks/hooks.json`、`.claude-plugin/hooks.json` 或其他。若實作時發現需要調整，僅變更檔案位置／結構，保留 hook event 名稱與 command 邏輯。
-- **macOS osascript 通知：** 受系統「通知」設定控制。使用者第一次可能要在「系統設定 → 通知 → Script Editor」開啟通知權限。文件不額外指引，使用者自行處理。
-- **Linux 桌面差異：** GNOME/KDE/sway 等對 `notify-send` 支援程度不同，極端情況通知不出現但不會報錯。
-- **訊息語言：** 目前混用中文 title + 英文 body。若有國際使用者使用，可在未來版本參數化。
