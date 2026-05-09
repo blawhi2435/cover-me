@@ -152,12 +152,19 @@ Write the scenario list to `.devflow-state.json` `evidence.frontend_hands_on.sce
 
 **Step 2 — Bring up the dev server.** Use the project's dev command (CLAUDE.md `## Dev Commands` if present, else `package.json` `scripts.dev`). Run in background. Wait for the ready signal (URL printed, port open). If a dev command cannot be found, run `references/test-detection.md`-style search and ask the user.
 
-**Step 3 — Drive the UI.** Invoke `document-skills:webapp-testing` (Playwright). For each scenario:
+**Step 3 — Drive the UI.** Use the Playwright MCP tools directly. For each scenario, call these tools in order:
 
-- Navigate, perform the actions, assert the visible outcome.
-- Capture `browser_console_messages` after each scenario — any `error`-level message that isn't pre-existing-baseline is a failure.
-- Capture `browser_network_requests` — any 4xx/5xx on a request the scenario triggered is a failure unless the scenario is explicitly testing that error.
-- Take a screenshot at the final state of each scenario; store paths under `.devflow-state.json` `evidence.frontend_hands_on.screenshots`.
+1. `mcp__plugin_playwright_playwright__browser_navigate` — go to the scenario's URL.
+2. `mcp__plugin_playwright_playwright__browser_snapshot` — accessibility-tree snapshot for selector discovery (preferred over screenshot-then-guess).
+3. `mcp__plugin_playwright_playwright__browser_click` / `browser_fill_form` / `browser_type` / `browser_select_option` — perform the scenario's actions.
+4. `mcp__plugin_playwright_playwright__browser_wait_for` — wait for the asserted text or state.
+5. `mcp__plugin_playwright_playwright__browser_console_messages` — capture console output. Any non-baseline `error`-level message = scenario fail.
+6. `mcp__plugin_playwright_playwright__browser_network_requests` — capture network. Any 4xx/5xx on a request the scenario triggered = fail (unless the scenario explicitly tests that error).
+7. `mcp__plugin_playwright_playwright__browser_take_screenshot` — store the path under `.devflow-state.json` `evidence.frontend_hands_on.screenshots`.
+
+After all scenarios complete, call `mcp__plugin_playwright_playwright__browser_close`.
+
+**Forbidden fallbacks.** Do NOT invoke `document-skills:webapp-testing` — its instructions tell you to write Python Playwright scripts, which is the wrong tool here. Do NOT create `.py` automation files, do NOT `pip install playwright`, do NOT call `python -m playwright`. The MCP tools listed above are the only sanctioned path. If `mcp__plugin_playwright_playwright__*` tools are not available in your context, halt and return a blocker to the orchestrator — do not improvise an alternative.
 
 **Step 4 — Record evidence.** Append to state:
 
