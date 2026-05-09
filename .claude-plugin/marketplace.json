@@ -8,27 +8,9 @@
   },
   "plugins": [
     {
-      "name": "git-workflow",
-      "source": "./plugins/git-workflow",
-      "description": "Git commit and push workflow skills",
-      "category": "development"
-    },
-    {
-      "name": "code-review",
-      "source": "./plugins/code-review",
-      "description": "Multi-angle code review skills",
-      "category": "development"
-    },
-    {
-      "name": "standard-coding-style",
-      "source": "./plugins/standard-coding-style",
-      "description": "Coding standards and best practices enforcement",
-      "category": "development"
-    },
-    {
-      "name": "dev-flow",
-      "source": "./plugins/dev-flow",
-      "description": "Full delivery workflow from spec design through PR — brainstorm, branch, TDD, code review, and PR open",
+      "name": "coding-god",
+      "source": "./plugins/coding-god",
+      "description": "Full-stack coding workflow — dev-flow, code review, coding style, and git",
       "category": "development"
     }
   ]
