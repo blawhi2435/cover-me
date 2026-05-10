@@ -26,10 +26,10 @@ Create one todo per node (all `pending`):
 5. opsx:apply (TDD + coding style)
 6. Code review
 7. Unit + integration tests
-8. opsx:archive
-9. Commit pending changes
-10. Open PR
-11. Summary report
+8. Summary preview + confirmation gate
+9. opsx:archive
+10. Commit pending changes
+11. Open PR
 
 Mark each `in_progress` on entry, `completed` on exit. Loop iterations update existing todos rather than create duplicates.
 
@@ -184,35 +184,40 @@ When the subagent returns `{"node6_blocker": true, "agentId": "<id>", "error": "
 
 If for any reason the orchestrator ends up handling Node 6 directly (e.g. subagent crashed, partial recovery), it **must** invoke `coding-god:code-review`. Inline single-pass review is forbidden. If the orchestrator itself cannot invoke the skill, halt and surface the error verbatim — never silently degrade.
 
-### Node 8 — opsx:archive (orchestrator)
+### Node 8 — Summary preview + confirmation gate (orchestrator)
+
+Print a preview summary to the user containing:
+
+- `branch` — branch name from Node 2
+- `change_name` — from Node 3
+- `iterations` — from subagent payload
+- `specialists` — from subagent payload
+- `test_output_tail` — from subagent payload
+- `frontend_hands_on` — from subagent payload (scenarios + per-scenario verdict + screenshot paths, or the `n/a` / `skipped` sentinel)
+- `deviations` — from subagent payload
+
+Then ask the user **a single yes/no**: "要 archive + commit + PR 嗎？"
+
+- No / 任何修正請求 → halt. Do not run Nodes 9–11. Return control to the user so they can request changes (which may loop back into the subagent via resume) or stop entirely.
+- Yes → proceed through Nodes 9 → 10 → 11 in sequence without further confirmation. After Node 11 completes, print one trailing line: `PR opened: <url>`.
+
+`pr_url` and `commit_shas` are intentionally **not** in the preview — they don't exist yet at this gate.
+
+### Node 9 — opsx:archive (orchestrator)
 
 Invoke `opsx:archive`. Single call, no loop. Print result to the user.
 
-### Node 9 — Commit pending changes (orchestrator)
+### Node 10 — Commit pending changes (orchestrator)
 
-Check `git status`. Clean tree → skip to Node 10.
+Check `git status`. Clean tree → skip to Node 11.
 
 If anything is uncommitted (typically the archive's file moves, plus any spec/plan files the user wants tracked), invoke `coding-god:git-commit` skill **directly**. Do **not** run raw `git commit` — the skill enforces Conventional Commits format, logical splitting, and user confirmation; bypassing it breaks the contract.
 
 If `coding-god:git-commit` cannot be invoked, halt and surface the error to the user verbatim. Never fall back to raw `git commit`.
 
-### Node 10 — Open PR (orchestrator)
+### Node 11 — Open PR (orchestrator)
 
-Run `gh pr create`. Title derived from the change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan. Print the PR URL to the user.
-
-### Node 11 — Summary (orchestrator)
-
-Print a final summary to the user containing:
-
-- `branch` — branch name from Node 2
-- `pr_url` — from Node 10
-- `change_name` — from Node 3
-- `iterations` — from subagent payload
-- `commit_shas` — `git log <base>..HEAD --format=%H`
-- `specialists` — from subagent payload
-- `test_output_tail` — from subagent payload
-- `frontend_hands_on` — from subagent payload (scenarios + per-scenario verdict + screenshot paths, or the `n/a` / `skipped` sentinel)
-- `deviations` — subagent's, plus any added by orchestrator at Nodes 8–10
+Run `gh pr create`. Title derived from the change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan. Print the PR URL to the user as `PR opened: <url>`.
 
 ## Loops & limits
 
