@@ -1,5 +1,6 @@
 .claude
-.opencode
+.opencode/*
+!.opencode/INSTALL.md
 openspec
 CLAUDE.md
 docs/
