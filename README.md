@@ -31,7 +31,9 @@ Update to the latest versions:
 
 opencode has no marketplace command — let your AI agent install it for you. In an opencode session, paste:
 
-> Fetch and follow instructions from https://raw.githubusercontent.com/blawhi2435/cover-me/main/.opencode/INSTALL.md
+```
+Fetch and follow instructions from https://raw.githubusercontent.com/blawhi2435/cover-me/main/.opencode/INSTALL.md
+```
 
 The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.config/opencode/skills/`, and verify the result. Full steps live in [.opencode/INSTALL.md](./.opencode/INSTALL.md).
 
