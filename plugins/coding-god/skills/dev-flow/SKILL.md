@@ -136,11 +136,20 @@ loop:
 
 Invariants: review always precedes test within a pass; both review issues and test failures loop back to Node 5; the two loop counters are independent.
 
+#### Worker drive model — cold-dispatch baseline, optional warm
+
+The orchestrator returns to the worker once per apply round and once per test round. There are two ways to do that:
+
+- **Baseline (always works, default):** every round dispatches a **fresh** `dev-flow-implement` via the Agent tool (`subagent_type: dev-flow-implement`), passing `state_file` and `resume_from_node: <N>`. The worker rebuilds context by reading `.devflow-state.json`, `tasks.md`, and the working tree. This is the path you MUST assume unless warm-drive is confirmed available.
+- **Warm (optimization, only when available):** keep one long-lived worker and resume it via the `SendMessage` tool to its captured agent ID, preserving its full in-context history across rounds (no cold-start, no re-reading refs). **`SendMessage` only exists when Claude Code's experimental agent-teams feature is enabled** (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, set at session start). See the README "Configuration" section.
+
+**Detect once, before the first dispatch:** check whether the `SendMessage` tool is available in this session (e.g. via ToolSearch for `SendMessage`). If yes, use the warm path and capture/reuse the worker's agent ID across rounds; if no, use the cold baseline for every round. Do not assume warm — a session without the flag has no `SendMessage`, and silently expecting it would strand the loop.
+
+Either way the loop logic, payloads, and `.devflow-state.json` contract are identical — only the round-to-round transport differs. The state file (below) is what makes the cold baseline correct, so it must stay current regardless of which path is used.
+
 #### Node 5 — Apply worker dispatch
 
-**Warm-worker drive model (primary path).** On the first apply round, dispatch `dev-flow-implement` in **apply mode** via the Agent tool (`subagent_type: dev-flow-implement`) and capture the returned agent ID. For every subsequent apply round (after a review or test failure loops back), send the next brief to that **same worker** via `SendMessage` to its agent ID rather than spawning a new Agent. This keeps the worker warm — no cold-start overhead, no loss of context. Only fall back to a fresh Agent dispatch (with `state_file` and `resume_from_node: 5`) if `SendMessage` fails or the worker has expired.
-
-The worker runs on Sonnet, loads `superpowers:test-driven-development` and `coding-god:standard-coding-style`, and executes the per-Task red/green/refactor cycle for every task in `tasks.md`.
+Dispatch the worker in **apply mode** for each apply round, using the warm or cold transport per the drive model above. The worker runs on Sonnet, loads `superpowers:test-driven-development` and `coding-god:standard-coding-style`, and executes the per-Task red/green/refactor cycle for every task in `tasks.md`.
 
 The `dev-flow-implement` agent declares `model: sonnet` in its frontmatter. **That is the contract.** When dispatching, do NOT pass a `model` parameter to the Agent tool — the frontmatter wins.
 
@@ -164,9 +173,7 @@ Only mark Node 6 todo `completed` after specialist results are in hand.
 
 #### Node 7 — Test worker dispatch
 
-**Warm-worker drive model (primary path).** Send the test-mode brief to the **same worker** kept warm from Node 5 via `SendMessage`. If that worker has expired, dispatch a fresh Agent with `state_file` and `resume_from_node: 7`. Capture the (possibly new) agent ID. For subsequent test rounds after a test failure loops back to Node 5 and then forward to Node 7 again, reuse `SendMessage` to whatever the current live agent ID is.
-
-The worker runs pre-flight environment readiness (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md`, then the full unit + integration suite, then Node 7.5 frontend hands-on if applicable.
+Dispatch the worker in **test mode** for each test round, using the warm or cold transport per the drive model above (`resume_from_node: 7` on cold dispatch). The worker runs pre-flight environment readiness (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md`, then the full unit + integration suite, then Node 7.5 frontend hands-on if applicable.
 
 Test worker return payload: `{ passed, test_output_tail, frontend_hands_on, deviations }`. The orchestrator writes `test_output_tail` and `frontend_hands_on` into `.devflow-state.json` `evidence`.
 
@@ -176,7 +183,7 @@ On halt/blocker (pre-flight failure, unresolvable test failure), surface to the 
 
 Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
 
-The state file is the **cold-resume contract** (fallback path only): when `SendMessage` to the warm worker fails (agent expired, transport error), dispatch a fresh `dev-flow-implement` with the state file path and `resume_from_node: <N>`. Never re-run dev-flow from Node 1 to recover. The primary path is always `SendMessage` to the live agent ID — cold dispatch is the exception, not the rule.
+The state file is the **resume contract** that makes cold dispatch correct: a fresh `dev-flow-implement` started with the state file path and `resume_from_node: <N>` recovers full durable context. This is the baseline path (used every round when `SendMessage` is unavailable) and also the recovery path when a warm worker expires or `SendMessage` errors. Never re-run dev-flow from Node 1 to recover.
 
 Add `.devflow-state.json` to `.gitignore` if not already present.
 

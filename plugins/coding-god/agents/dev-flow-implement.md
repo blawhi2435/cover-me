@@ -56,7 +56,7 @@ At every node boundary (entry and exit), update `.devflow-state.json` with:
 
 The orchestrator owns `iterations.review` and `evidence.specialists` — do not overwrite them. Update only the fields you own (`last_completed_node`, `iterations.apply` or `iterations.test`, `evidence.test_output_tail`, `evidence.frontend_hands_on`, `evidence.deviations`).
 
-**Warm-worker lifecycle.** The orchestrator's primary path is `SendMessage` to your agent ID for each successive apply and test round — you are kept warm between rounds, not re-dispatched. Cold dispatch (fresh Agent call with `state_file` + `resume_from_node`) is the fallback used only when `SendMessage` fails or your agent has expired. Keep this file current so a fresh worker can resume from the last completed node without re-running earlier work.
+**Worker lifecycle.** The baseline is cold dispatch: each apply and test round may start a **fresh** worker with `state_file` + `resume_from_node`, so you must keep this file current — a fresh worker has to resume from the last completed node without re-running earlier work. When the orchestrator has the `SendMessage` tool available (experimental agent-teams, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), it may instead keep you warm and `SendMessage` you each round, preserving your in-context history. You behave identically either way — the only difference is whether your context carries over or is rebuilt from the state file.
 
 ## Required setup
 
