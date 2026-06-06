@@ -78,7 +78,7 @@ Detect skip cases by keywords in task title/description: `schema`, `migration`, 
 
 ### Node 4.5 — Aggregate design references
 
-Before dispatching to the subagent, build the reference bundle. The subagent starts cold and **cannot see this session's conversation**, so anything produced in-session (e.g. `impeccable:shape` output) must be persisted to a file or it will be lost.
+Before dispatching to the worker, build the reference bundle. The worker starts cold and **cannot see this session's conversation**, so anything produced in-session (e.g. `impeccable:shape` output) must be persisted to a file or it will be lost.
 
 **Ambient refs — auto-detected, no user action.** Check repo root and add each existing file to `ambient_refs`:
 
@@ -113,76 +113,94 @@ Skip silently if absent.
 
 3. Stash `ambient_refs` and `design_refs` in `.devflow-state.json` so they survive resume.
 
-### Nodes 5–7 — Dispatch to `dev-flow-implement` subagent (Sonnet)
+### Nodes 5–7 — Orchestrator-driven apply ↔ review ↔ test loop
 
-After Node 4.5 completes, hand off the apply ↔ review ↔ test loop to the `dev-flow-implement` subagent via the Agent tool (`subagent_type: dev-flow-implement`). The subagent runs on Sonnet and owns:
+After Node 4.5 completes, the orchestrator drives the full Nodes 5–7 loop directly. **Nodes 8–11 stay in the orchestrator** — they are linear, single-pass steps that benefit from being visible to the user as they run.
 
-- Node 5: opsx:apply (with TDD + coding style)
-- Node 6: code review
-- Node 7: unit + integration tests
+The loop runs as follows (caps per `references/loop-limits.md`):
 
-The loop stays inside the subagent so iterations don't cold-restart and lose context. **Nodes 8–11 stay in the orchestrator** — they are linear, single-pass steps that benefit from being visible to the user as they run, and they invoke skills (`opsx:archive`, `coding-god:git-commit`, `gh pr create`) that are more reliably dispatched from the orchestrator than from a subagent.
+```
+reset loop counters
+loop:
+  dispatch worker (apply mode)    # Node 5 — opsx:apply per-Task TDD + coding style
+  run coding-god:code-review      # Node 6 — orchestrator invokes review directly
+  if review has issues:
+      append fix sub-tasks to tasks.md
+      record iteration; continue  # back to Node 5
+  dispatch worker (test mode)     # Node 7 — pre-flight + full suite + Node 7.5 hands-on
+  if tests failed:
+      append fix sub-tasks to tasks.md
+      record iteration; continue  # back to Node 5
+  break                           # all green → Node 8
+```
 
-#### Model contract — do not override
+Invariants: review always precedes test within a pass; both review issues and test failures loop back to Node 5; the two loop counters are independent.
 
-The `dev-flow-implement` agent declares `model: sonnet` in its frontmatter. **That is the contract.** When dispatching, do NOT pass a `model` parameter to the Agent tool — the frontmatter wins. Passing `model: opus` (or anything else) silently breaks the cost/latency profile this skill is calibrated for.
+#### Worker drive model — cold-dispatch baseline, optional warm
 
-#### Pre-dispatch shadow-skill check
+The orchestrator returns to the worker once per apply round and once per test round. There are two ways to do that:
 
-Before dispatching, detect potential skill shadowing for the two skills the subagent invokes (`coding-god:code-review`, `opsx:apply`). For each, check whether **both** a standalone version (e.g. `~/.claude/skills/<name>/SKILL.md`) and a plugin version exist. If shadowing is detected, surface a warning to the user listing the duplicates and ask which to use before dispatch — silent ambiguity here causes the wrong skill to run inside the subagent, which is hard to diagnose later.
+- **Baseline (always works, default):** every round dispatches a **fresh** `dev-flow-implement` via the Agent tool (`subagent_type: dev-flow-implement`), passing `state_file` and `resume_from_node: <N>`. The worker rebuilds context by reading `.devflow-state.json`, `tasks.md`, and the working tree. This is the path you MUST assume unless warm-drive is confirmed available.
+- **Warm (optimization, only when available):** keep one long-lived worker and resume it via the `SendMessage` tool to its captured agent ID, preserving its full in-context history across rounds (no cold-start, no re-reading refs). **`SendMessage` only exists when Claude Code's experimental agent-teams feature is enabled** (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, set at session start). See the README "Configuration" section.
+
+**Detect once, before the first dispatch:** check whether the `SendMessage` tool is available in this session (e.g. via ToolSearch for `SendMessage`). If yes, use the warm path and capture/reuse the worker's agent ID across rounds; if no, use the cold baseline for every round. Do not assume warm — a session without the flag has no `SendMessage`, and silently expecting it would strand the loop.
+
+Either way the loop logic, payloads, and `.devflow-state.json` contract are identical — only the round-to-round transport differs. The state file (below) is what makes the cold baseline correct, so it must stay current regardless of which path is used.
+
+#### Node 5 — Apply worker dispatch
+
+Dispatch the worker in **apply mode** for each apply round, using the warm or cold transport per the drive model above. The worker runs on Sonnet, loads `superpowers:test-driven-development` and `coding-god:standard-coding-style`, and executes the per-Task red/green/refactor cycle for every task in `tasks.md`.
+
+The `dev-flow-implement` agent declares `model: sonnet` in its frontmatter. **That is the contract.** When dispatching, do NOT pass a `model` parameter to the Agent tool — the frontmatter wins.
+
+**Pre-dispatch shadow-skill check (worker skills).** Before dispatching the worker, detect potential skill shadowing for `opsx:apply` (the skill the worker invokes). Check whether **both** a standalone version (e.g. `~/.claude/skills/opsx:apply/SKILL.md`) and a plugin version exist. If shadowing is detected, surface a warning and ask the user which to use before dispatch.
+
+Apply worker return payload: `{ applied_tasks, deviations }`. On halt/blocker, surface to the user verbatim and stop.
+
+#### Node 6 — Code review (orchestrator)
+
+**The orchestrator runs `coding-god:code-review` directly** — this skill dispatches specialist subagents (logic / style / test / security) in parallel, which requires Agent-tool access available only in the orchestrator. Never delegate review to the worker.
+
+**Pre-dispatch shadow-skill check (review skill).** Before invoking, detect potential skill shadowing for `coding-god:code-review` (standalone vs. plugin versions). Surface any duplicates to the user before invoking.
+
+Scope the review to this change only: `git diff main...HEAD` plus the working tree. Do not let the skill default to the entire repo.
+
+Record each specialist run in `.devflow-state.json` `evidence.specialists` as `{name, verdict, attempts}`.
+
+If `coding-god:code-review` cannot be invoked (skill not registered, Agent tool unavailable), halt and surface the error verbatim — never fall back to inline single-pass review.
+
+Only mark Node 6 todo `completed` after specialist results are in hand.
+
+#### Node 7 — Test worker dispatch
+
+Dispatch the worker in **test mode** for each test round, using the warm or cold transport per the drive model above (`resume_from_node: 7` on cold dispatch). The worker runs pre-flight environment readiness (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md`, then the full unit + integration suite, then Node 7.5 frontend hands-on if applicable.
+
+Test worker return payload: `{ passed, test_output_tail, frontend_hands_on, deviations }`. The orchestrator writes `test_output_tail` and `frontend_hands_on` into `.devflow-state.json` `evidence`.
+
+On halt/blocker (pre-flight failure, unresolvable test failure), surface to the user verbatim and stop.
 
 #### State file (resume contract)
 
-Before dispatch, write `.devflow-state.json` at the repo root with the initial dispatch context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The subagent updates it at every node boundary. This is the **resume contract**: if `SendMessage` to the subagent later fails (agent expired, transport error, blocker-recovery resume), the orchestrator dispatches a fresh `dev-flow-implement` subagent with the state file path and `resume_from_node: <N>` in the brief. Never re-run dev-flow from Node 1 to recover — always resume via state file.
+Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
+
+The state file is the **resume contract** that makes cold dispatch correct: a fresh `dev-flow-implement` started with the state file path and `resume_from_node: <N>` recovers full durable context. This is the baseline path (used every round when `SendMessage` is unavailable) and also the recovery path when a warm worker expires or `SendMessage` errors. Never re-run dev-flow from Node 1 to recover.
 
 Add `.devflow-state.json` to `.gitignore` if not already present.
 
-#### Dispatch brief must include (subagent starts cold)
+#### Worker dispatch brief must include (worker starts cold)
 
 - `change_name` from Node 3
 - `spec_path` — brainstorm spec from Node 1
 - `tasks_path` — `openspec/changes/<change-name>/tasks.md`
 - `branch` from Node 2
 - `state_file` — path to `.devflow-state.json`
-- **`ambient_refs`** — auto-detected project docs (DESIGN.md, PRODUCT.md). Subagent must Read each before Node 5 and treat as binding constraints on the implementation.
-- **`design_refs`** — this change's specific design inputs (shape.md, mockups, reference components, design tokens, API contracts, schemas). Subagent must Read each local file before Node 5. URL entries that aren't fetchable surface as a verification-only note (not a blocker).
-- **Environment-readiness expectation**: explicit instruction to run pre-flight (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md` before the first test run in Node 7
-- **`frontend_hands_on` flag** — default omit (subagent auto-detects). Pass `frontend_hands_on: skip` only if the user has explicitly opted out for this change; the subagent will then record it as a deviation rather than running the UI driver.
+- **`ambient_refs`** — auto-detected project docs (DESIGN.md, PRODUCT.md). Worker must Read each before Node 5 and treat as binding constraints.
+- **`design_refs`** — this change's specific design inputs. Worker must Read each local file before Node 5. URL entries that aren't fetchable surface as a verification-only note (not a blocker).
+- **Mode**: `apply` or `test`
+- **Environment-readiness expectation** (test mode): explicit instruction to run pre-flight per `references/test-detection.md` before the first test run.
+- **`frontend_hands_on` flag** — default omit (worker auto-detects). Pass `frontend_hands_on: skip` only if the user has explicitly opted out; the worker records it as a deviation.
 - Loop limits reference (`references/loop-limits.md`)
 - Test detection reference (`references/test-detection.md`)
-
-#### Subagent return payload
-
-On success the subagent returns:
-
-```json
-{
-  "iterations": {"apply": N, "review": N, "test": N},
-  "specialists": [{"name": "...", "verdict": "...", "attempts": N}, ...],
-  "test_output_tail": "<last ~50 lines of final passing test run>",
-  "frontend_hands_on": {"scenarios": [...], "results": [...], "screenshots": [...]} | "n/a — no UI surface touched" | "skipped per user",
-  "deviations": ["..."]
-}
-```
-
-Validate: `specialists` must be non-empty, `test_output_tail` must be non-empty, `frontend_hands_on` must be present (evidence object with all-pass results, or one of the two sentinels). Missing fields → `SendMessage` (or fresh-subagent resume via state file) asking the subagent to refill from `.devflow-state.json`. A bare "all green" return is forbidden.
-
-After validation, mark Nodes 5–7 todos `completed` and proceed to Node 8 in the orchestrator.
-
-**On halt/blocker:** if the subagent returns a blocker (loop limit hit, unresolvable test failure, etc.), surface it to the user verbatim and stop — **except** for `node6_blocker` below, which the orchestrator handles by running the skill itself and resuming the same subagent.
-
-#### `node6_blocker` — code-review skill couldn't run inside subagent
-
-When the subagent returns `{"node6_blocker": true, "agentId": "<id>", "error": "..."}`:
-
-1. Invoke `coding-god:code-review` skill **directly in the orchestrator** (the orchestrator has Agent-tool access and can dispatch the specialist subagents the skill requires). Do **not** inline-review yourself.
-2. After the skill returns results, resume the original subagent via `SendMessage` to the returned `agentId`, passing the review results and an instruction to continue from Node 7. Do **not** spawn a new subagent — the original still holds the implementation context.
-3. **`SendMessage` fallback**: if `SendMessage` to that `agentId` fails (agent expired/unreachable), dispatch a fresh `dev-flow-implement` subagent with `resume_from_node: 7`, the state file path, and the review results inlined into the brief. Do not restart from Node 5.
-4. Only mark Node 6 todo `completed` after the skill has actually run and specialist results are in hand.
-
-#### Orchestrator-fallback guardrail (rare path)
-
-If for any reason the orchestrator ends up handling Node 6 directly (e.g. subagent crashed, partial recovery), it **must** invoke `coding-god:code-review`. Inline single-pass review is forbidden. If the orchestrator itself cannot invoke the skill, halt and surface the error verbatim — never silently degrade.
 
 ### Node 8 — Summary preview + confirmation gate (orchestrator)
 
@@ -190,15 +208,17 @@ Print a preview summary to the user containing:
 
 - `branch` — branch name from Node 2
 - `change_name` — from Node 3
-- `iterations` — from subagent payload
-- `specialists` — from subagent payload
-- `test_output_tail` — from subagent payload
-- `frontend_hands_on` — from subagent payload (scenarios + per-scenario verdict + screenshot paths, or the `n/a` / `skipped` sentinel)
-- `deviations` — from subagent payload
+- `iterations` — `apply` and `test` counts written by the worker; `review` count written by the orchestrator; all sourced from `.devflow-state.json`
+- `specialists` — from `.devflow-state.json` `evidence.specialists` (recorded by the orchestrator after each Node 6 run)
+- `test_output_tail` — from `.devflow-state.json` `evidence.test_output_tail` (last ~50 lines of the final passing test run)
+- `frontend_hands_on` — from `.devflow-state.json` `evidence.frontend_hands_on` (scenarios + per-scenario verdict + screenshot paths, or the `n/a` / `skipped` sentinel)
+- `deviations` — from `.devflow-state.json` `evidence.deviations` (accumulated from both worker and orchestrator)
+
+Validate before printing: `specialists` must be non-empty, `test_output_tail` must be non-empty, `frontend_hands_on` must be present (evidence object with all-pass results, or one of the two sentinels). A bare "all green" summary with no evidence is forbidden — re-read `.devflow-state.json` and surface the actual captured tail.
 
 Then ask the user **a single yes/no**: "要 archive + commit + PR 嗎？"
 
-- No / 任何修正請求 → halt. Do not run Nodes 9–11. Return control to the user so they can request changes (which may loop back into the subagent via resume) or stop entirely.
+- No / 任何修正請求 → halt. Do not run Nodes 9–11. Return control to the user so they can request changes (which may loop back into a fresh worker via state-file resume) or stop entirely.
 - Yes → proceed through Nodes 9 → 10 → 11 in sequence without further confirmation. After Node 11 completes, print one trailing line: `PR opened: <url>`.
 
 `pr_url` and `commit_shas` are intentionally **not** in the preview — they don't exist yet at this gate.

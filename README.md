@@ -45,3 +45,26 @@ The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.conf
 
 - **superpowers** — provides `superpowers:brainstorming`, `superpowers:test-driven-development`
 - **opsx** (OpenSpec workflow) — provides `opsx:new`, `opsx:ff`, `opsx:apply`, `opsx:archive`
+
+## Configuration
+
+### Warm worker for `dev-flow` (optional)
+
+`coding-god`'s `dev-flow` drives an apply ↔ review ↔ test loop in which the orchestrator (main agent) hands apply/test rounds to a `dev-flow-implement` worker. There are two ways the orchestrator can return to that worker each round:
+
+- **Baseline (always works):** a fresh worker is dispatched each round and picks up from `.devflow-state.json` + `resume_from_node`. No setup required.
+- **Warm worker (optimization):** the orchestrator keeps one long-lived worker and resumes it via the `SendMessage` tool, preserving the worker's full context (prior tool calls and reasoning) across rounds.
+
+The warm path needs the `SendMessage` tool, which Claude Code only loads when the experimental **agent teams** feature is enabled. To turn it on, set:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+in your `settings.json` (user-level `~/.claude/settings.json`, or project-level `.claude/settings.json`), then **restart Claude Code** — tools are loaded at session start, so enabling it mid-session has no effect. Without the flag, `dev-flow` automatically falls back to the baseline path.
+
+> This flag enables an experimental feature whose behavior may change.

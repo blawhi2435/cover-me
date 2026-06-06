@@ -1,5 +1,7 @@
 # Loop Limits
 
+The **orchestrator** (dev-flow skill) owns the Nodes 5–7 loop and is responsible for counting iterations and enforcing these caps.
+
 ## Caps
 
 | Loop | Max iterations |
@@ -9,11 +11,11 @@
 
 ## Counting
 
-Each return-to-Node-5 increments the counter for that loop. The two loops are counted independently.
+Each counter increments after each review-issue or test-failure that loops back to Node 5. The two loops are counted independently. The orchestrator increments the appropriate counter each time it sends the worker back to apply mode.
 
 ## On hitting the cap
 
-Do not loop again. Halt and report to the user:
+The orchestrator does not loop again. Halt and report to the user:
 
 ```
 [Loop limit reached] <loop-name> has retried 3 times.
@@ -35,5 +37,5 @@ Loop counters reset to 0 when:
 
 ## Logging
 
-After every loop iteration, write a one-line summary to the TodoWrite todo for that node:
+After every loop iteration, the orchestrator writes a one-line summary to the TodoWrite todo for that node:
 > "Iteration 2/3: <one-line cause of retry>"
