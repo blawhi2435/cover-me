@@ -67,4 +67,6 @@ The warm path needs the `SendMessage` tool, which Claude Code only loads when th
 
 in your `settings.json` (user-level `~/.claude/settings.json`, or project-level `.claude/settings.json`), then **restart Claude Code** — tools are loaded at session start, so enabling it mid-session has no effect. Without the flag, `dev-flow` automatically falls back to the baseline path.
 
+When the flag is on, `dev-flow` **prefers the warm worker**. Note that `SendMessage` is a *deferred* tool: it won't show up in the orchestrator's directly-loaded tool list even when enabled — it must be resolved via `ToolSearch` (`select:SendMessage`). The skill detects it this way, so a session with the flag set genuinely uses warm; it does not silently stay cold just because the tool isn't pre-loaded.
+
 > This flag enables an experimental feature whose behavior may change.
