@@ -64,6 +64,31 @@ Checklist (run what applies to the project):
 
 If any pre-flight step fails, halt Node 7 and report the failure verbatim — do not proceed to test execution.
 
+## Static checks (lint / typecheck) — CI parity gate
+
+A local test suite that passes while `lint` or `typecheck` is never run diverges from CI: a change can be green on `test` (and even `typecheck`) yet fail CI on a lint rule the test runner never evaluates (e.g. an ESLint error like "Cannot call impure function during render"). Node 7 MUST run the same static gates CI runs — not just the test command.
+
+Discover the gates in this order:
+
+1. **CI workflow files (source of truth)** — read `.github/workflows/*.yml` (or `.gitlab-ci.yml`, `azure-pipelines.yml`, etc.) and mirror the exact commands each relevant job runs for this project, in the same order. CI is what "must be green to merge", so match it. A very common shape is `lint → typecheck → test`; if CI runs lint before tests, so must Node 7.
+2. **package.json scripts** — if no CI file is found, run whichever of these exist: `lint`, `typecheck` (or `type-check`), `format:check` / `fmt:check`. Use the project's package manager (`pnpm` / `npm` / `yarn` / `bun`).
+3. **Language defaults** — Go: `go vet ./...` (and `gofmt -l .` for formatting); Python: `ruff check` / `flake8` plus `mypy` if configured; Rust: `cargo clippy -- -D warnings` and `cargo fmt --check`.
+
+Rules:
+
+- Run the static gates as part of Node 7, **after pre-flight and before the test suite** (they are cheaper and fail fast).
+- A static-check failure is a **Node 7 failure**: report the failing command's output verbatim and loop back to Node 5, exactly like a test failure. Do NOT treat lint/typecheck as advisory — if CI enforces it, the workflow must too.
+- Distinguish errors from warnings: a runner that exits non-zero (e.g. ESLint with any error, `tsc` with any error) is a failure; warning-only output that exits zero is not. Use the command's exit code, mirroring CI.
+
+Cache the discovered static-check command(s) alongside the test commands under `## Test Commands` so future runs skip rediscovery:
+
+```
+## Test Commands
+- Static checks (Node 7 gate): <lint command> && <typecheck command>
+- Full suite (Node 7 gate): <full-suite command>
+- Scoped (Node 5 inner loop): <scoped template> — substitute the test file path per Task
+```
+
 ## Silent-skip detection
 
 A test run that "passes" while silently skipping cases is a failure, not a success. After running tests, scan the captured output for skip markers and treat any hit as a failure unless the skip is annotated `<!-- TDD skipped: ... -->` in the corresponding task.
@@ -84,6 +109,7 @@ Implementation: capture stdout+stderr of the test command, run the grep, and inc
 ## Running
 
 - Run pre-flight checklist first. Halt on any failure.
+- Run the static checks (lint / typecheck) gate next, mirroring CI. A failure loops back to Node 5, same as a test failure.
 - Unit tests run before integration tests.
 - If unit tests pass, run integration tests.
 - If unit fails, do not run integration; report unit failure and loop back to Node 5.

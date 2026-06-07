@@ -191,7 +191,7 @@ Only mark Node 6 todo `completed` after specialist results are in hand.
 
 #### Node 7 — Test worker dispatch
 
-Dispatch the worker in **test mode** for each test round, using the warm or cold transport per the drive model above (`resume_from_node: 7` on cold dispatch). The worker runs pre-flight environment readiness (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md`, then the full unit + integration suite, then Node 7.5 frontend hands-on if applicable.
+Dispatch the worker in **test mode** for each test round, using the warm or cold transport per the drive model above (`resume_from_node: 7` on cold dispatch). The worker runs pre-flight environment readiness (lockfile install, `docker compose` health, env vars, migrations) per `references/test-detection.md`, then the static-checks (lint / typecheck) CI-parity gate, then the full unit + integration suite, then Node 7.5 frontend hands-on if applicable.
 
 Test worker return payload: `{ passed, test_output_tail, frontend_hands_on, deviations }`. The orchestrator writes `test_output_tail` and `frontend_hands_on` into `.devflow-state.json` `evidence`.
 
