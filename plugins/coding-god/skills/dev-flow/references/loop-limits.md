@@ -37,5 +37,7 @@ Loop counters reset to 0 when:
 
 ## Logging
 
-After every loop iteration, the orchestrator writes a one-line summary to the TodoWrite todo for that node:
+After every loop iteration, the orchestrator records a one-line summary:
 > "Iteration 2/3: <one-line cause of retry>"
+
+Write it to the node's entry in the session's todo or task tool when one is available, and always append it to `.devflow-state.json` `evidence.iteration_log` so it survives a resume and does not depend on any particular tool being present.

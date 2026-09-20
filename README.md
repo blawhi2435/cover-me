@@ -44,7 +44,7 @@ The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.conf
 `coding-god` invokes skills from the following third-party plugins. Install them separately before using `coding-god`:
 
 - **superpowers** — provides `superpowers:brainstorming`, `superpowers:test-driven-development`
-- **opsx** (OpenSpec workflow) — provides `opsx:new`, `opsx:ff`, `opsx:apply`, `opsx:archive`
+- **opsx** (OpenSpec workflow) — provides `opsx:new`, `opsx:ff`, `opsx:apply`, `opsx:archive`. Requires the OpenSpec CLI **≥ 1.8.0** (`npm i -g @fission-ai/openspec@latest`); after upgrading the CLI, run `openspec update` in each repo so the generated skills match. `dev-flow` checks both before it starts.
 
 ## Configuration
 

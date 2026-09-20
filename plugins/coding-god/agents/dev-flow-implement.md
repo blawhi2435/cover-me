@@ -49,12 +49,13 @@ At every node boundary (entry and exit), update `.devflow-state.json` with:
     "specialists": [],
     "test_output_tail": "",
     "frontend_hands_on": "",
-    "deviations": []
+    "deviations": [],
+    "iteration_log": []
   }
 }
 ```
 
-The orchestrator owns `iterations.review` and `evidence.specialists` — do not overwrite them. Update only the fields you own (`last_completed_node`, `iterations.apply` or `iterations.test`, `evidence.test_output_tail`, `evidence.frontend_hands_on`, `evidence.deviations`).
+The orchestrator owns `iterations.review`, `evidence.specialists`, and `evidence.iteration_log` — do not overwrite them. Update only the fields you own (`last_completed_node`, `iterations.apply` or `iterations.test`, `evidence.test_output_tail`, `evidence.frontend_hands_on`, `evidence.deviations`).
 
 **Worker lifecycle.** The baseline is cold dispatch: each apply and test round may start a **fresh** worker with `state_file` + `resume_from_node`, so you must keep this file current — a fresh worker has to resume from the last completed node without re-running earlier work. When the orchestrator has the `SendMessage` tool available (experimental agent-teams, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), it may instead keep you warm and `SendMessage` you each round, preserving your in-context history. You behave identically either way — the only difference is whether your context carries over or is rebuilt from the state file.
 
@@ -71,7 +72,7 @@ Before any work:
 
 ## Node 5 — opsx:apply (apply mode)
 
-Invoke `opsx:apply`. The inner loop is **per Task**, not per sub-task. Each Task in `tasks.md` is structured `N.1 write failing test / N.2 implement / N.3 refactor` (per dev-flow's Rule B). Use the **scoped** test command from CLAUDE.md's `## Test Commands` section — never the full-suite command — substituting the Task's test file path.
+Invoke `opsx:apply`. The inner loop is **per Task**, not per checkbox. Each Task in `tasks.md` is a `## N. <feature>` group holding three flat checkboxes — `N.1` write failing test / `N.2` implement / `N.3` refactor (per dev-flow's Rule B). There is no parent checkbox for the group; the group is done when its checkboxes are. Use the **scoped** test command from CLAUDE.md's `## Test Commands` section — never the full-suite command — substituting the Task's test file path.
 
 Per Task N (one cycle):
 
@@ -81,7 +82,11 @@ Per Task N (one cycle):
 
 The scoped command is whatever the project's CLAUDE.md `## Test Commands` "Scoped" line specifies, with `<file>` substituted. If CLAUDE.md is missing the Scoped line, run `references/test-detection.md` end-to-end to populate it before continuing — do not fall back to the full suite for the inner loop.
 
-Tasks annotated `<!-- TDD skipped: <reason> -->` (typically schema/migration/config/docs) follow the task as written without the red/green cycle.
+Groups whose heading carries `<!-- TDD skipped: <reason> -->` (typically schema/migration/config/docs) follow their checkboxes as written without the red/green cycle.
+
+**Ticking checkboxes.** Mark each checkbox `- [x]` as soon as its own step is observed — `N.1` when the run is red, `N.2` when it is green, `N.3` when the refactor (or the decision that none is needed) leaves it green. Use only `[x]`; the OpenSpec CLI reads every other marker (`[~]`, `[-]`, `[]`) as unfinished. Tick a checkbox only when its specified behavior is fully implemented. The orchestrator's pre-archive gate reads the CLI's count, so an unticked box blocks the archive and a wrongly ticked one hides unfinished work.
+
+**Fix groups.** On a loop-back round the orchestrator appends a `## N. Fix: <cause>` group. Work it like any other group, applying the red/green cycle when the fix changes behavior.
 
 **Do not run the full suite during Node 5.** That is Node 7's job.
 
@@ -161,7 +166,7 @@ After all scenarios complete, call `mcp__plugin_playwright_playwright__browser_c
 }
 ```
 
-Any scenario `fail` → return test-mode payload with `passed: false` and the failing scenario + console/network excerpt + screenshot path. The orchestrator will append fix sub-tasks and loop back to Node 5.
+Any scenario `fail` → return test-mode payload with `passed: false` and the failing scenario + console/network excerpt + screenshot path. The orchestrator will append a fix group to `tasks.md` and loop back to Node 5.
 
 **Skip flag.** If the dispatch brief includes `frontend_hands_on: skip`, record `"frontend_hands_on": "skipped per user"` in `evidence.deviations` and proceed. Default is **not skipped**.
 
@@ -186,6 +191,7 @@ After Node 7 completes (pass or fail), return to the orchestrator:
 
 - Pre-flight fails → halt, return blocker verbatim.
 - Unresolvable blocker (test you cannot make pass, ambiguous requirement, missing dependency) → halt, return the blocker verbatim.
+- **Scope expansion** — a task cannot be completed without work the spec and tasks do not describe, or you are tempted to drop, narrow, or defer specified behavior to make it fit. `opsx:apply` says to pause and ask the user here; you cannot reach the user, so **halt and return a blocker** naming the task ID, what the spec says, and the added scope you found. Leave the task unchecked. Do not wait for input, do not implement the extra scope on your own authority, and do not quietly simplify the specified behavior.
 - Never write feature code outside the TDD cycle. Never skip tests to "get unstuck."
 - Do NOT invoke `coding-god:code-review`. Do NOT dispatch specialist subagents. These are the orchestrator's responsibility.
 

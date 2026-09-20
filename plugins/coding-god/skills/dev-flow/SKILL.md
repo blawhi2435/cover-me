@@ -5,17 +5,22 @@ description: Use when the user wants to implement a new feature, fix a bug, or b
 
 # dev-flow
 
-Orchestrates an 11-node delivery workflow. This skill **never writes code directly** — it dispatches to other skills and tracks progress with TodoWrite.
+Orchestrates an 11-node delivery workflow. This skill **never writes code directly** — it dispatches to other skills and tracks progress with a todo list (see Setup).
 
 ## Prerequisites
 
+- **OpenSpec CLI ≥ 1.8.0, with generated skills in sync.** Check both before Node 1:
+  1. `openspec --version` must report 1.8.0 or later. Older CLIs do not count indented or non-`-` checkboxes, so their progress numbers disagree with `tasks.md`, and the Node 4 / Node 8 gates below cannot be trusted. If older → halt and tell the user to run `npm i -g @fission-ai/openspec@latest`.
+  2. The `generatedBy` value in the repo's `.claude/skills/openspec-*/SKILL.md` must equal the CLI version. If it differs → halt and tell the user to run `openspec update` in the repo, then restart the session so the regenerated skills load. If the repo has no generated OpenSpec skills (commands-only delivery), skip this check and record `"generatedBy check skipped: no generated skills"` in `deviations`.
 - Playwright MCP server must be installed and connected for Node 7.5 (frontend hands-on test). Install via the marketplace (e.g. `/plugin install playwright`), which provides the `mcp__plugin_playwright_playwright__browser_*` tools. Without it, any frontend-touching change halts at Node 7.5 with a blocker — the workflow does NOT silently fall back to writing Python scripts.
 
 ## Announce
 
 At start: "Using dev-flow skill to drive the feature delivery workflow."
 
-## Setup: seed TodoWrite
+## Setup: seed progress tracking
+
+Use a todo or task tool if the session provides one; do not assume any particular tool exists. If there is none, `.devflow-state.json` is the source of truth: record each node's entry and exit in `last_completed_node` and append loop iteration summaries to `evidence.iteration_log` (see `references/loop-limits.md`). Never stall or fail because a tracking tool is missing.
 
 Create one todo per node (all `pending`):
 
@@ -46,8 +51,10 @@ Ask the user: "要開 branch 開發嗎？"
 ### Node 3 — opsx:new
 Invoke `opsx:new`, passing the brainstorm spec path (from Node 1) as context input. Capture the change name produced. The opsx `proposal.md` should summarize the brainstorm spec, not re-derive requirements.
 
+**Changes with no spec-level behavior change.** If the approved brainstorm spec changes nothing a user or downstream system can observe (pure refactor, tooling, config, docs), the change must opt out of specs rather than invent a requirement: confirm with the user ("這個 change 沒有 spec 層級的行為改變，要設 `skip_specs: true` 嗎？"), then add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line. Do not create delta spec files for such a change — `openspec validate` rejects `skip_specs` and delta specs together. If behavior does change, leave `skip_specs` unset; the change must carry at least one delta spec.
+
 ### Node 4 — opsx:ff (test-first, no design duplication)
-Invoke `opsx:ff`. **Two post-processing rules:**
+Invoke `opsx:ff`. For a change that declared `skip_specs: true` in Node 3, `opsx:ff` reports the `specs` artifact as `skipped` and writes no spec files — that is expected, not a failure. **Two post-processing rules, then a validation gate:**
 
 **Rule A — design.md must reference, not duplicate.** When `opsx:ff` produces `openspec/changes/<change-name>/design.md`, edit it so the body is:
 
@@ -65,16 +72,34 @@ This change implements the design in the linked spec. See that document for prob
 
 If the engineer finds opsx-specific framing that genuinely isn't in the source spec, they may add it under "Opsx-specific notes". Otherwise leave that section empty. **Do not copy goals, architecture, or rationale from the source spec into design.md.**
 
-**Rule B — tasks.md must be test-first.** Every task that is not pure schema/migration/config/docs must be restructured to:
+**Rule B — tasks.md must be test-first, in OpenSpec's native layout.** Every task that is not pure schema/migration/config/docs must be restructured into one `## N.` group per feature with three flat checkboxes. Each checkbox states how its completion is verified:
 
 ```
-- [ ] Task N: <feature>
-  - [ ] N.1 Write failing test for <behavior>
-  - [ ] N.2 Implement minimum code to pass
-  - [ ] N.3 Refactor if needed
+## N. <feature>
+
+- [ ] N.1 Write failing test for <behavior>; verify the scoped test run is red
+- [ ] N.2 Implement minimum code to pass; verify the scoped test run is green
+- [ ] N.3 Refactor if needed; verify the scoped test run stays green
 ```
 
-Detect skip cases by keywords in task title/description: `schema`, `migration`, `config`, `docs`, `documentation`. For skipped tasks, leave structure as-is and add an inline note: `<!-- TDD skipped: <reason> -->`.
+**The unit is the task line, not the heading `opsx:ff` wrote.** `opsx:ff` typically emits a few broad groups (`## 2. Core Implementation`) holding several checkboxes. Each of those checkboxes is one behavior and becomes its **own** `## N.` group — do not collapse a whole original group into a single red/green/refactor triplet. The original broad headings do not survive; name each new group with a short label taken from the task's own wording (e.g. `## 4. CSV formatter with delimiter quoting`). The task's original "and verify …" clause is dropped: its behavior goes into `N.1`'s `<behavior>` slot and the three fixed verification phrases above replace it.
+
+Layout rules — the OpenSpec CLI parses this file, so these are not stylistic:
+
+- **No parent checkbox.** The `## N.` heading names the feature. A `- [ ] Task N:` line would be counted as a task of its own and leave the change permanently "incomplete".
+- **Checkboxes are flat (column 0) and numbered under their own group.** `N.x` must sit under `## N.`; a `3.1` under `## 2.` makes `openspec validate` warn on every such line.
+- **Only `- [ ]` and `- [x]`.** Any other marker (`[~]`, `[-]`, `[]`) reads as unfinished.
+- Renumber groups sequentially after restructuring so every ID is unique.
+
+Detect skip cases by keywords in task title/description: `schema`, `migration`, `config`, `docs`, `documentation`. For skipped tasks, keep the checkbox text as written (including its own verification clause) and add the inline note to the **group heading line**: `## N. <name> <!-- TDD skipped: <reason> -->`. A skipped task also gets its own group, so each heading carries exactly one reason — when an original group held both a config task and a migration task, they become two groups, not one group with a combined note.
+
+**Validation gate — before any worker dispatch.** After applying Rules A and B, run:
+
+```bash
+openspec validate <change-name>
+```
+
+It must report the change valid with **no errors and no warnings**. If it reports anything, fix the artifact and re-run. If the fix needs a requirements decision (e.g. a MODIFIED requirement that drops a scenario the main spec still has), halt and show the user the validation output. Never dispatch a worker against a change that does not validate clean — the same problem will otherwise resurface at archive time, after the implementation work is spent.
 
 ### Node 4.5 — Aggregate design references
 
@@ -125,16 +150,27 @@ loop:
   dispatch worker (apply mode)    # Node 5 — opsx:apply per-Task TDD + coding style
   run coding-god:code-review      # Node 6 — orchestrator invokes review directly
   if review has issues:
-      append fix sub-tasks to tasks.md
+      append a fix group to tasks.md
       record iteration; continue  # back to Node 5
   dispatch worker (test mode)     # Node 7 — pre-flight + full suite + Node 7.5 hands-on
   if tests failed:
-      append fix sub-tasks to tasks.md
+      append a fix group to tasks.md
       record iteration; continue  # back to Node 5
   break                           # all green → Node 8
 ```
 
 Invariants: review always precedes test within a pass; both review issues and test failures loop back to Node 5; the two loop counters are independent.
+
+**Appending a fix group.** Fix work is never added as sub-tasks of an existing group. Append a new group numbered one greater than the highest existing group, with its checkboxes numbered under it, each stating its verification:
+
+```
+## 5. Fix: <one-line cause>
+
+- [ ] 5.1 <fix>; verify <the failing test / review finding no longer reproduces>
+- [ ] 5.2 ...
+```
+
+The two-line form above is for fixes that change no behavior (a typo, a config value, a rename). When the fix changes behavior — the usual case for a review finding or a failing test — the group uses the full Rule B triplet instead (`N.1` failing test that reproduces the finding / `N.2` implement / `N.3` refactor). Never reuse an existing task ID.
 
 #### Worker drive model — prefer warm when available, cold fallback
 
@@ -175,6 +211,8 @@ The `dev-flow-implement` agent declares `model: sonnet` in its frontmatter. **Th
 
 Apply worker return payload: `{ applied_tasks, deviations }`. On halt/blocker, surface to the user verbatim and stop.
 
+**Scope-expansion blocker.** `opsx:apply` tells the implementing agent to pause and ask when a task needs work beyond what the spec and tasks describe. The worker cannot reach the user, so it returns that as a blocker instead (task left unchecked, added scope named). Surface it verbatim and stop; after the user decides, update the spec/tasks accordingly and resume via the state file. Do not tell the worker to "just proceed" without the user's decision.
+
 #### Node 6 — Code review (orchestrator)
 
 **The orchestrator runs `coding-god:code-review` directly** — this skill dispatches specialist subagents (logic / style / test / security) in parallel, which requires Agent-tool access available only in the orchestrator. Never delegate review to the worker.
@@ -187,7 +225,7 @@ Record each specialist run in `.devflow-state.json` `evidence.specialists` as `{
 
 If `coding-god:code-review` cannot be invoked (skill not registered, Agent tool unavailable), halt and surface the error verbatim — never fall back to inline single-pass review.
 
-Only mark Node 6 todo `completed` after specialist results are in hand.
+Only mark Node 6 `completed` after specialist results are in hand.
 
 #### Node 7 — Test worker dispatch
 
@@ -199,7 +237,7 @@ On halt/blocker (pre-flight failure, unresolvable test failure), surface to the 
 
 #### State file (resume contract)
 
-Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
+Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `iteration_log`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
 
 The state file is the **resume contract** that makes cold dispatch correct: a fresh `dev-flow-implement` started with the state file path and `resume_from_node: <N>` recovers full durable context. This is the baseline path (used every round when `SendMessage` is unavailable) and also the recovery path when a warm worker expires or `SendMessage` errors. Never re-run dev-flow from Node 1 to recover.
 
@@ -221,6 +259,18 @@ Add `.devflow-state.json` to `.gitignore` if not already present.
 - Test detection reference (`references/test-detection.md`)
 
 ### Node 8 — Summary preview + confirmation gate (orchestrator)
+
+**Pre-archive gate — OpenSpec decides whether the change is done.** Before printing the preview, run both:
+
+```bash
+openspec instructions apply --change <change-name> --json   # read progress.remaining and tasks[]
+openspec validate <change-name>
+```
+
+- `progress.remaining` must be `0`. Do not count checkboxes in `tasks.md` by hand — the CLI's count is the authority, and it is the one `openspec archive` will enforce.
+- Validation must report no errors and no warnings.
+
+If tasks remain, list the unfinished ones (from `tasks[]` where `done` is false) and do **not** offer to archive: go back to Node 5 if they are real work, or halt for the user if they should be dropped or reworded. If validation is not clean, fix or halt as in Node 4. If the user explicitly directs you to proceed despite a warning, record it in `deviations`.
 
 Print a preview summary to the user containing:
 
@@ -244,6 +294,8 @@ Then ask the user **a single yes/no**: "要 archive + commit + PR 嗎？"
 ### Node 9 — opsx:archive (orchestrator)
 
 Invoke `opsx:archive`. Single call, no loop. Print result to the user.
+
+**Never pass `--yes` to get past an incomplete-task warning.** When run without a terminal, `openspec archive` responds to unfinished tasks with `rerun with openspec archive <name> --yes`. That suggestion archives unfinished work. If it appears, the Node 8 gate was bypassed or `tasks.md` changed since — halt and surface the message verbatim. `--yes` is acceptable only for the routine confirmations of a change whose tasks are all complete.
 
 ### Node 10 — Commit pending changes (orchestrator)
 
