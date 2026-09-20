@@ -70,3 +70,16 @@ in your `settings.json` (user-level `~/.claude/settings.json`, or project-level 
 When the flag is on, `dev-flow` **prefers the warm worker**. Note that `SendMessage` is a *deferred* tool: it won't show up in the orchestrator's directly-loaded tool list even when enabled — it must be resolved via `ToolSearch` (`select:SendMessage`). The skill detects it this way, so a session with the flag set genuinely uses warm; it does not silently stay cold just because the tool isn't pre-loaded.
 
 > This flag enables an experimental feature whose behavior may change.
+
+## Reviewer models for `code-review`
+
+`coding-god:code-review` dispatches each specialist as its own plugin agent, and each agent's model is fixed in its frontmatter — not inherited from whichever session invokes the skill:
+
+| Agent | Model | Reason |
+|-------|-------|--------|
+| `coding-god:logic-reviewer` | `opus` | Last line of defense against bugs; must be stronger than the Sonnet author (`dev-flow-implement`) |
+| `coding-god:security-reviewer` | `opus` | Same reasoning; only runs when the trigger table fires, so volume is low |
+| `coding-god:test-reviewer` | `sonnet` | Judging real test coverage needs reasoning, but not Opus-level |
+| `coding-god:style-reviewer` | `sonnet` | Convention matching against surrounding files |
+
+The code author (`dev-flow-implement`) runs on Sonnet, so logic and security review deliberately run on a stronger model — a Sonnet-authored change is reviewed by more than an equally-capable peer. There is no setting to change this: the models live in the four `*-reviewer.md` agent definitions shipped with the plugin, not in a config file.
