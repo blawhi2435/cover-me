@@ -151,11 +151,9 @@ Do not invoke `opsx:new`: it stops after scaffolding and writes no artifact. Do 
 Invoke `opsx:ff`, passing this brief as its input (fill the placeholders):
 
 ```
-Change `<change-name>` already exists at `openspec/changes/<change-name>/`. Do not run `openspec new change` and do not suggest `opsx:continue` — start from your step 3 (artifact build order) and generate every missing required artifact.
+Change `<change-name>` already exists at `openspec/changes/<change-name>/`. Do not run `openspec new change` and do not suggest `opsx:continue` — start from your step 3 (artifact build order). `proposal.md`, `design.md`, and every file under `specs/` already exist and are final: do not modify them, and do not re-inspect the codebase for anything they or the source spec already decide. The only artifact left to generate is `tasks.md`.
 
-Source spec: `<spec_path>`. `proposal.md` summarizes that spec; do not re-derive requirements or re-inspect the codebase for anything the spec already decides.
-
-`design.md` already exists and is final. Do not modify it.
+Source spec: `<spec_path>`. Read its `## Design` section for how the work is to be built; read `specs/` for what must be true when it is done.
 
 `tasks.md` must use this layout. Every task that is not pure schema/migration/config/docs work is its own `## N.` group with exactly three flat checkboxes:
 
@@ -168,11 +166,11 @@ Source spec: `<spec_path>`. `proposal.md` summarizes that spec; do not re-derive
 One behavior per group — never several behaviors under one heading, and no broad groups such as "Core Implementation". A schema/migration/config/docs task is also its own group: write its checkboxes as the work requires (each stating how it is verified) and suffix the heading `<!-- TDD skipped: <reason> -->`. No parent checkbox. Checkboxes at column 0. Only `- [ ]`. Groups numbered sequentially from 1; `N.x` numbered under its own `## N.`.
 ```
 
-For a change that declared `skip_specs: true` in Node 3, `opsx:ff` reports the `specs` artifact as `skipped` and writes no spec files — that is expected, not a failure.
+For a change that opted out of specs in Node 3 (`skip_specs: true`), `opsx:ff` reports the `specs` artifact as `skipped` — that is expected, not a failure.
 
 **Post-ff check — fix, don't rewrite.** After `opsx:ff` returns:
 
-- `design.md` must be byte-identical to the Node 3 stub. If ff changed it, restore the stub.
+- `proposal.md`, `design.md`, and every `specs/**/spec.md` must be byte-identical to what Node 3 wrote. If ff changed any of them, restore Node 3's version — the user approved that text.
 - `tasks.md` must follow the layout in the brief. The OpenSpec CLI parses this file, so these are not stylistic: a `- [ ] Task N:` parent line is counted as a task of its own and leaves the change permanently "incomplete"; a `3.1` under `## 2.` makes `openspec validate` warn on every such line; any marker other than `- [ ]` / `- [x]` reads as unfinished. If a group violates the layout (several behaviors under one heading, a parent checkbox, a misnumbered checkbox, a non-standard marker, a TDD-exempt group without its `<!-- TDD skipped: … -->` note), fix that group only — split it into one `## N.` group per behavior and renumber the groups that follow so every ID is unique. Do not rewrite groups that already comply.
 
 **Validation gate — before any worker dispatch.** Run:
