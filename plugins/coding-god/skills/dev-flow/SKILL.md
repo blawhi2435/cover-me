@@ -122,17 +122,17 @@ Derive the change name from the approved brainstorm spec's title: kebab-case, at
    ## Capabilities
 
    ### New Capabilities
-   - `<capability-path>`: <the block's `## Purpose` sentence>        ← one bullet per `Capability: … (new)`; write `None.` if there are none
+   - `<capability-path>`: <the block's `## Purpose` sentence>
 
    ### Modified Capabilities
-   - `<capability-path>`: <the requirement names under its MODIFIED / REMOVED / RENAMED headings>   ← one bullet per `Capability: … (existing)`; write `None.` if there are none
+   - `<capability-path>`: <the requirement names under its MODIFIED / REMOVED / RENAMED headings>
 
    ## Impact
 
    <body of the spec's `## Affected files`, verbatim>
    ```
 
-   For `Capability: none`, the Capabilities section is the single line `None — this change sets \`skip_specs: true\`.`
+   Under New Capabilities, one bullet per `Capability: … (new)`; under Modified Capabilities, one bullet per `Capability: … (existing)`; a heading with no entries gets the single line `None.`. For `Capability: none`, the whole Capabilities section is the single line `None — this change sets skip_specs: true.`
 
 6. **Write each delta spec by copying its fenced block byte-for-byte** to `openspec/changes/<change-name>/specs/<capability-path>/spec.md` — the block's content only, without the surrounding fence lines. Do not reword, reorder, or add requirements; the user approved this text.
 7. **Validate now, before Node 4:**
