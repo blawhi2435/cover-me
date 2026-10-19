@@ -63,7 +63,7 @@ The orchestrator owns `iterations.review`, `evidence.specialists`, and `evidence
 
 Before any work:
 
-1. **Read every `ambient_refs` and `design_refs` local file.** These are binding constraints — the implementation must match what they specify (visual design, component conventions, API contracts, schemas). For URL entries that can't be fetched, record them in `evidence.deviations` as verification-only items and continue.
+1. **Apply mode: read every `ambient_refs` and `design_refs` local file.** These are binding constraints — the implementation must match what they specify (visual design, component conventions, API contracts, schemas). For URL entries that can't be fetched, record them in `evidence.deviations` as verification-only items and continue. **Test mode: do not read them up front.** Read `spec_path` and `design_refs` only if the Node 7.5 detection below says the change needs the hands-on test (its Step 1 re-reads them).
 2. **Apply mode only** — load via the Skill tool, in order:
    - `superpowers:test-driven-development`
    - `coding-god:standard-coding-style`
@@ -72,7 +72,7 @@ Before any work:
 
 ## Node 5 — opsx:apply (apply mode)
 
-Invoke `opsx:apply`. The inner loop is **per Task**, not per checkbox. Each Task in `tasks.md` is a `## N. <feature>` group holding three flat checkboxes — `N.1` write failing test / `N.2` implement / `N.3` refactor (per dev-flow's Rule B). There is no parent checkbox for the group; the group is done when its checkboxes are. Use the **scoped** test command from CLAUDE.md's `## Test Commands` section — never the full-suite command — substituting the Task's test file path.
+Invoke `opsx:apply`. The inner loop is **per Task**, not per checkbox. Each Task in `tasks.md` is a `## N. <feature>` group holding three flat checkboxes — `N.1` write failing test / `N.2` implement / `N.3` refactor (per dev-flow's Node 4 layout). There is no parent checkbox for the group; the group is done when its checkboxes are. Use the **scoped** test command from CLAUDE.md's `## Test Commands` section — never the full-suite command — substituting the Task's test file path.
 
 Per Task N (one cycle):
 

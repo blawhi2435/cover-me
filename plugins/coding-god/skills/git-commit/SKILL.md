@@ -65,6 +65,6 @@ For each proposed commit:
 When `dev-flow` invokes this skill from a dispatched-mode run (see `coding-god:dev-flow`'s `## Dispatched mode` section):
 
 - Treat the dispatcher's authenticated `proceed` as the confirmation for every commit in the planned split — there is no local user to ask, and it is not a stand-in for just one of them.
-- Include only files on the commit allowlist defined in `coding-god:dev-flow`'s `## Dispatched mode` (Node 9–11 row). Do not restate it here.
+- Include only files on the commit allowlist defined in `coding-god:dev-flow`'s `references/dispatched-mode.md` (Node 9–11 row). Do not restate it here.
 - Report any other untracked or modified file as `blocked` of kind `other`, naming the files, and commit nothing until the dispatcher replies.
 - Send a commit-grouping question as `blocked` of kind `other` too, and wait for the dispatcher's answer before any commit proceeds.

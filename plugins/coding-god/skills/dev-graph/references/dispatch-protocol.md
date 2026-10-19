@@ -39,7 +39,7 @@ Field names, exact:
 - `spec_path` — path, inside the child's own repository, to the child spec G3 wrote. Treated by dev-flow as the already-approved spec. Rejected by the child unless it resolves under that repository's own top level.
 - `contract_path` — path, inside the child's own repository, to the contract copy G3 wrote. `null` when no contract applies to this run. Subject to the same containment check as `spec_path`. Skipped by the containment check when `null`.
 - `branch` — the branch name dev-flow's Node 2 creates without asking.
-- `folders` — the folders, relative to the group root, this child owns (`["."]` for a single-folder group, `["backend", "frontend"]` for a same-repo multi-folder group), each entry relative with no `..` and no absolute entries. It bounds the commit allowlist, which is defined once in `../../dev-flow/SKILL.md` ("Dispatched mode", Node 9–11 row).
+- `folders` — the folders, relative to the group root, this child owns (`["."]` for a single-folder group, `["backend", "frontend"]` for a same-repo multi-folder group), each entry relative with no `..` and no absolute entries. It bounds the commit allowlist, which is defined once in `../../dev-flow/references/dispatched-mode.md` (Node 9–11 row).
 
 There is no `scope` field and no field that stops dev-flow short of Node 8 — dispatched mode always runs through the Node 8 gate before sending `ready`.
 
@@ -101,7 +101,7 @@ Plain text, not JSON, exactly one of:
 
 ## Child-side: the `dispatched` object
 
-Defined once in `../../dev-flow/SKILL.md` ("Dispatched mode"), including the `last_sent` values `ready`, `blocked`, `answered`, `done`.
+Defined once in `../../dev-flow/references/dispatched-mode.md`, including the `last_sent` values `ready`, `blocked`, `answered`, `done`.
 
 ## .devgraph-state.json — main session's state
 
