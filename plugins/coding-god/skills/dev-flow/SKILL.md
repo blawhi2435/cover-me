@@ -73,47 +73,36 @@ Derive the change name from the approved brainstorm spec's title: kebab-case, at
 
 Do not invoke `opsx:new`: it stops after scaffolding and writes no artifact, and `opsx:ff` in Node 4 generates every remaining artifact itself. Do not write `tasks.md` or `proposal.md` here — `openspec status` is file-existence only, and a file created now would make `opsx:ff` skip generating it.
 
-### Node 4 — opsx:ff (test-first, no design duplication)
-Invoke `opsx:ff`. For a change that declared `skip_specs: true` in Node 3, `opsx:ff` reports the `specs` artifact as `skipped` and writes no spec files — that is expected, not a failure. **Two post-processing rules, then a validation gate:**
+### Node 4 — opsx:ff with the shape declared up front
 
-**Rule A — design.md must reference, not duplicate.** When `opsx:ff` produces `openspec/changes/<change-name>/design.md`, edit it so the body is:
-
-```markdown
-# Design
-
-> Source spec: `<relative path to brainstorm spec from Node 1>`
-
-This change implements the design in the linked spec. See that document for problem framing, goals, architecture, and decisions. The sections below contain only opsx-specific framing not covered in the source spec.
-
-## Opsx-specific notes
-
-<only items the opsx workflow requires that aren't in the source spec — typically empty>
-```
-
-If the engineer finds opsx-specific framing that genuinely isn't in the source spec, they may add it under "Opsx-specific notes". Otherwise leave that section empty. **Do not copy goals, architecture, or rationale from the source spec into design.md.**
-
-**Rule B — tasks.md must be test-first, in OpenSpec's native layout.** Every task that is not pure schema/migration/config/docs must be restructured into one `## N.` group per feature with three flat checkboxes. Each checkbox states how its completion is verified:
+Invoke `opsx:ff`, passing this brief as its input (fill the placeholders):
 
 ```
-## N. <feature>
+Change `<change-name>` already exists at `openspec/changes/<change-name>/`. Do not run `openspec new change` and do not suggest `opsx:continue` — start from your step 3 (artifact build order) and generate every missing required artifact.
+
+Source spec: `<spec_path>`. `proposal.md` summarizes that spec; do not re-derive requirements or re-inspect the codebase for anything the spec already decides.
+
+`design.md` already exists and is final. Do not modify it.
+
+`tasks.md` must use this layout. Every task that is not pure schema/migration/config/docs work is its own `## N.` group with exactly three flat checkboxes:
+
+## N. <feature — a short label taken from the task's own wording>
 
 - [ ] N.1 Write failing test for <behavior>; verify the scoped test run is red
 - [ ] N.2 Implement minimum code to pass; verify the scoped test run is green
 - [ ] N.3 Refactor if needed; verify the scoped test run stays green
+
+One behavior per group — never several behaviors under one heading, and no broad groups such as "Core Implementation". A schema/migration/config/docs task is also its own group: write its checkboxes as the work requires (each stating how it is verified) and suffix the heading `<!-- TDD skipped: <reason> -->`. No parent checkbox. Checkboxes at column 0. Only `- [ ]`. Groups numbered sequentially from 1; `N.x` numbered under its own `## N.`.
 ```
 
-**The unit is the task line, not the heading `opsx:ff` wrote.** `opsx:ff` typically emits a few broad groups (`## 2. Core Implementation`) holding several checkboxes. Each of those checkboxes is one behavior and becomes its **own** `## N.` group — do not collapse a whole original group into a single red/green/refactor triplet. The original broad headings do not survive; name each new group with a short label taken from the task's own wording (e.g. `## 4. CSV formatter with delimiter quoting`). The task's original "and verify …" clause is dropped: its behavior goes into `N.1`'s `<behavior>` slot and the three fixed verification phrases above replace it.
+For a change that declared `skip_specs: true` in Node 3, `opsx:ff` reports the `specs` artifact as `skipped` and writes no spec files — that is expected, not a failure.
 
-Layout rules — the OpenSpec CLI parses this file, so these are not stylistic:
+**Post-ff check — fix, don't rewrite.** After `opsx:ff` returns:
 
-- **No parent checkbox.** The `## N.` heading names the feature. A `- [ ] Task N:` line would be counted as a task of its own and leave the change permanently "incomplete".
-- **Checkboxes are flat (column 0) and numbered under their own group.** `N.x` must sit under `## N.`; a `3.1` under `## 2.` makes `openspec validate` warn on every such line.
-- **Only `- [ ]` and `- [x]`.** Any other marker (`[~]`, `[-]`, `[]`) reads as unfinished.
-- Renumber groups sequentially after restructuring so every ID is unique.
+- `design.md` must be byte-identical to the Node 3 stub. If ff changed it, restore the stub.
+- `tasks.md` must follow the layout in the brief. The OpenSpec CLI parses this file, so these are not stylistic: a `- [ ] Task N:` parent line is counted as a task of its own and leaves the change permanently "incomplete"; a `3.1` under `## 2.` makes `openspec validate` warn on every such line; any marker other than `- [ ]` / `- [x]` reads as unfinished. If a group violates the layout (several behaviors under one heading, a parent checkbox, a misnumbered checkbox, a non-standard marker, a TDD-exempt group without its `<!-- TDD skipped: … -->` note), fix that group only — split it into one `## N.` group per behavior and renumber the groups that follow so every ID is unique. Do not rewrite groups that already comply.
 
-Detect skip cases by keywords in task title/description: `schema`, `migration`, `config`, `docs`, `documentation`. For skipped tasks, keep the checkbox text as written (including its own verification clause) and add the inline note to the **group heading line**: `## N. <name> <!-- TDD skipped: <reason> -->`. A skipped task also gets its own group, so each heading carries exactly one reason — when an original group held both a config task and a migration task, they become two groups, not one group with a combined note.
-
-**Validation gate — before any worker dispatch.** After applying Rules A and B, run:
+**Validation gate — before any worker dispatch.** Run:
 
 ```bash
 openspec validate <change-name>
@@ -190,7 +179,7 @@ Invariants: review always precedes test within a pass; both review issues and te
 - [ ] 5.2 ...
 ```
 
-The two-line form above is for fixes that change no behavior (a typo, a config value, a rename). When the fix changes behavior — the usual case for a review finding or a failing test — the group uses the full Rule B triplet instead (`N.1` failing test that reproduces the finding / `N.2` implement / `N.3` refactor). Never reuse an existing task ID.
+The two-line form above is for fixes that change no behavior (a typo, a config value, a rename). When the fix changes behavior — the usual case for a review finding or a failing test — the group uses the full Node 4 red/green/refactor triplet instead (`N.1` failing test that reproduces the finding / `N.2` implement / `N.3` refactor). Never reuse an existing task ID.
 
 #### Worker drive model — prefer warm when available, cold fallback
 
