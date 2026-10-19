@@ -43,10 +43,40 @@ Mark each `in_progress` on entry, `completed` on exit. Loop iterations update ex
 ### Node 1 — Brainstorm
 Invoke `superpowers:brainstorming`. Output: a spec file. Do not proceed until the user has approved the spec.
 
-Two overrides apply while brainstorming runs inside dev-flow:
+Three overrides apply while brainstorming runs inside dev-flow:
 
 - **Its terminal state does not apply.** brainstorming ends by invoking `writing-plans`; do not. `opsx:ff` in Node 4 produces the task list. After the user approves the spec, go straight to Node 2.
-- **The spec must end with a `## References` section** in the format Node 4.5 reads (`- [ ] Mockup: …`, `- [ ] Reference component: …`, `- [ ] Design tokens: …`, `- [ ] API contract / schema: …`). If the change has no UI, design, or contract input, the single entry is `- [ ] (none — purely backend/internal)`. Add the section before asking the user to approve the spec.
+- **The spec uses these sections, in this order, with these exact headings.** Node 3 copies from them mechanically, so the names are not stylistic:
+  - `## Problem` — why; becomes `proposal.md`'s "Why" verbatim.
+  - `## Goal` — what changes, as bullets, non-goals included; becomes "What Changes" verbatim.
+  - `## Design` — how, as decided with the user; stays in this file (design.md points here).
+  - `## Affected files` — paths and systems touched; becomes "Impact" verbatim.
+  - `## Requirements` — the behavior contract, in the format below; becomes the delta spec(s) verbatim.
+  - `## References` — design inputs for Node 4.5 (`- [ ] Mockup: …`, `- [ ] Reference component: …`, `- [ ] Design tokens: …`, `- [ ] API contract / schema: …`), or the single entry `- [ ] (none — purely backend/internal)`.
+- **`## Requirements` is written in OpenSpec's delta format, inside fenced blocks, so the user approves the exact text that will be archived.** Before writing it, run `openspec list --specs` to see the existing capabilities. Then, for each capability this change touches, write one `Capability:` line followed by one fenced `markdown` block:
+
+  ````markdown
+  Capability: `<capability-path>` (new)
+
+  ```markdown
+  # Spec Delta
+
+  ## Purpose
+
+  <one or two sentences, at least 50 characters, on what the capability is for>
+
+  ## ADDED Requirements
+
+  ### Requirement: <name>
+  The system SHALL <normative statement>.
+
+  #### Scenario: <name>
+  - **WHEN** <condition>
+  - **THEN** <expected outcome>
+  ```
+  ````
+
+  Rules, enforced by the OpenSpec CLI at validation: an existing capability uses its exact path from `openspec list --specs`, is marked `(existing)`, and its block has **no** `## Purpose`; a MODIFIED requirement copies the **entire existing requirement block** (from `### Requirement:` through all its scenarios) out of `openspec/specs/<path>/spec.md` under `## MODIFIED Requirements` and edits it, never a partial rewrite; a REMOVED requirement carries `**Reason**:` and `**Migration**:`; every requirement has at least one scenario; scenarios use exactly four hashtags (`#### Scenario:`); requirement text uses SHALL/MUST. A change with no spec-level behavior change (pure refactor, tooling, config, docs) writes the single line `Capability: none` and no block — do not invent a requirement to fill the section.
 
 ### Node 2 — Branch
 Ask the user: "要開 branch 開發嗎？"
