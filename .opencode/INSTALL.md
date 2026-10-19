@@ -75,7 +75,7 @@ All `OK` means the install is complete. Restart opencode to pick up the new skil
 - `superpowers:brainstorming`, `superpowers:test-driven-development`
 - `opsx:new`, `opsx:ff`, `opsx:apply`, `opsx:archive`
 
-These are **not bundled in this repo**. If the user wants to use `dev-flow`, they must obtain those skills separately and drop them into `~/.config/opencode/skills/`, or stick to skills that don't need them (e.g. `code-review`, `git-commit`, `git-push`, `standard-coding-style`).
+These are **not bundled in this repo**. If the user wants to use `dev-flow`, they must obtain those skills separately and drop them into `~/.config/opencode/skills/`, or stick to skills that don't need them (e.g. `git-commit`, `git-push`, `standard-coding-style`). `code-review` currently requires Claude Code — it dispatches plugin agents from `agents/`, which opencode does not install.
 
 ## Updating
 

@@ -46,6 +46,10 @@ The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.conf
 - **superpowers** — provides `superpowers:brainstorming`, `superpowers:test-driven-development`
 - **opsx** (OpenSpec workflow) — provides `opsx:new`, `opsx:ff`, `opsx:apply`, `opsx:archive`. Requires the OpenSpec CLI **≥ 1.8.0** (`npm i -g @fission-ai/openspec@latest`); after upgrading the CLI, run `openspec update` in each repo so the generated skills match. `dev-flow` checks both before it starts.
 
+## `dev-graph`
+
+`coding-god:dev-graph` is a process skill for a **main session** that coordinates `dev-flow` across more than one repository, launching one child session per repository and never writing feature code itself. The user decides at exactly two points: approving the spec, and approving the combined summary before any child archives, commits, or opens a PR. herdr is optional — without it, dev-graph prints a launch command for each child session instead. See [`plugins/coding-god/skills/dev-graph/SKILL.md`](plugins/coding-god/skills/dev-graph/SKILL.md) for the full flow.
+
 ## Configuration
 
 ### Warm worker for `dev-flow` (optional)
@@ -70,3 +74,20 @@ in your `settings.json` (user-level `~/.claude/settings.json`, or project-level 
 When the flag is on, `dev-flow` **prefers the warm worker**. Note that `SendMessage` is a *deferred* tool: it won't show up in the orchestrator's directly-loaded tool list even when enabled — it must be resolved via `ToolSearch` (`select:SendMessage`). The skill detects it this way, so a session with the flag set genuinely uses warm; it does not silently stay cold just because the tool isn't pre-loaded.
 
 > This flag enables an experimental feature whose behavior may change.
+
+### Agent teams for `dev-graph` (required)
+
+The same `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` flag above is only an optional speed-up for `dev-flow`'s warm worker, but it is **required** for `dev-graph`: both the main session and every child session need it set before they start. `SendMessage`/`ListAgents` are dev-graph's only transport for dispatching work, waiting on children, and relaying replies — there is no fallback path the way there is for dev-flow's warm/cold worker choice.
+
+## Reviewer models for `code-review`
+
+`coding-god:code-review` dispatches each specialist as its own plugin agent, and each agent's model is fixed in its frontmatter — not inherited from whichever session invokes the skill:
+
+| Agent | Model | Reason |
+|-------|-------|--------|
+| `coding-god:logic-reviewer` | `opus` | Last line of defense against bugs; must be stronger than the Sonnet author (`dev-flow-implement`) |
+| `coding-god:security-reviewer` | `opus` | Same reasoning; only runs when the trigger table fires, so volume is low |
+| `coding-god:test-reviewer` | `sonnet` | Judging real test coverage needs reasoning, but not Opus-level |
+| `coding-god:style-reviewer` | `sonnet` | Convention matching against surrounding files |
+
+The code author (`dev-flow-implement`) runs on Sonnet, so logic and security review deliberately run on a stronger model — a Sonnet-authored change is reviewed by more than an equally-capable peer. There is no setting to change this: the models live in the four `*-reviewer.md` agent definitions shipped with the plugin, not in a config file.
