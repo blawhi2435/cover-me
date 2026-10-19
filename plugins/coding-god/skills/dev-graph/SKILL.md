@@ -62,7 +62,7 @@ G2 also creates `.devgraph-state.json` with `graph_id = <YYYY-MM-DD>-<topic slug
 
 ### G3 — Split
 
-Write each group's child spec into its own repository, in dev-flow's own locations: `<repo>/docs/superpowers/specs/<date>-<topic>-design.md`, with a `## References` section as dev-flow's Node 4.5 expects. Decide each group's branch name using `../dev-flow/references/branch-naming.md`.
+Write each group's child spec into its own repository, in dev-flow's own locations: `<repo>/docs/superpowers/specs/<date>-<topic>-design.md`, with every section dev-flow's Node 1 requires (`## Problem`, `## Goal`, `## Design`, `## Affected files`, `## Requirements` in the fenced delta format, `## References`), so the child's Node 3 can derive its OpenSpec artifacts without asking. Decide each group's branch name using `../dev-flow/references/branch-naming.md`.
 
 **Contract alignment.** Applies whenever two or more groups call each other. Three layers, the first two mandatory:
 
