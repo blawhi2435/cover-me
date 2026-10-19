@@ -1,6 +1,6 @@
 ---
 name: dev-flow
-description: Use when the user wants to implement a new feature, fix a bug, or build something new. Orchestrates the full delivery workflow from spec design through PR — brainstorm, branch creation, opsx new/ff/apply (with mandatory TDD and coding style), code review, integration tests, archive, and PR open. Triggers on phrases like "實作 X", "做一個 Y", "新功能", "修 Z bug", "build a feature", "implement". Do NOT use for one-off questions, code reading, or trivial edits.
+description: Use when the user wants to implement a new feature, fix a bug, or build something new. Orchestrates the full delivery workflow from spec design through PR — brainstorm, branch creation, opsx ff/apply (with mandatory TDD and coding style), code review, integration tests, archive, and PR open. Triggers on phrases like "實作 X", "做一個 Y", "新功能", "修 Z bug", "build a feature", "implement". Do NOT use for one-off questions, code reading, or trivial edits.
 ---
 
 # dev-flow
@@ -26,7 +26,7 @@ Create one todo per node (all `pending`):
 
 1. Brainstorm spec
 2. Confirm + create branch
-3. opsx:new
+3. Create change (name, skip_specs, design stub)
 4. opsx:ff (test-first tasks.md)
 5. opsx:apply (TDD + coding style)
 6. Code review
@@ -48,10 +48,30 @@ Ask the user: "要開 branch 開發嗎？"
 - If no → halt the flow, return to user.
 - If yes → derive branch name per `references/branch-naming.md`, show it to the user, allow override, then `git checkout -b <name>`.
 
-### Node 3 — opsx:new
-Invoke `opsx:new`, passing the brainstorm spec path (from Node 1) as context input. Capture the change name produced. The opsx `proposal.md` should summarize the brainstorm spec, not re-derive requirements.
+### Node 3 — Create the change (no skill invocation)
 
-**Changes with no spec-level behavior change.** If the approved brainstorm spec changes nothing a user or downstream system can observe (pure refactor, tooling, config, docs), the change must opt out of specs rather than invent a requirement: confirm with the user ("這個 change 沒有 spec 層級的行為改變，要設 `skip_specs: true` 嗎？"), then add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line. Do not create delta spec files for such a change — `openspec validate` rejects `skip_specs` and delta specs together. If behavior does change, leave `skip_specs` unset; the change must carry at least one delta spec.
+Derive the change name from the approved brainstorm spec's title: kebab-case, at most five words (e.g. `csv-export-with-quoting`). Then, in this order:
+
+1. **Decide `skip_specs`.** If the approved spec changes nothing a user or downstream system can observe (pure refactor, tooling, config, docs), confirm with the user: "這個 change 沒有 spec 層級的行為改變，要設 `skip_specs: true` 嗎？". If behavior changes, leave `skip_specs` unset — the change must carry at least one delta spec.
+2. Run `openspec new change "<change-name>"`. If the CLI reports that the name already exists, append `-2`, `-3`, … until it succeeds, and use the name that succeeded from here on.
+3. If step 1 answered yes, add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line. Do not create delta spec files for such a change — `openspec validate` rejects `skip_specs` and delta specs together.
+4. Write `openspec/changes/<change-name>/design.md` with exactly this body. It is the whole design artifact; the source spec carries the design, and `opsx:ff` treats a design.md that exists as done:
+
+   ```markdown
+   # Design
+
+   > Source spec: `<relative path to brainstorm spec from Node 1>`
+
+   This change implements the design in the linked spec. See that document for problem framing, goals, architecture, and decisions. The sections below contain only opsx-specific framing not covered in the source spec.
+
+   ## Opsx-specific notes
+
+   <only items the opsx workflow requires that aren't in the source spec — typically empty>
+   ```
+
+5. Record `change_name` for the later nodes.
+
+Do not invoke `opsx:new`: it stops after scaffolding and writes no artifact, and `opsx:ff` in Node 4 generates every remaining artifact itself. Do not write `tasks.md` or `proposal.md` here — `openspec status` is file-existence only, and a file created now would make `opsx:ff` skip generating it.
 
 ### Node 4 — opsx:ff (test-first, no design duplication)
 Invoke `opsx:ff`. For a change that declared `skip_specs: true` in Node 3, `opsx:ff` reports the `specs` artifact as `skipped` and writes no spec files — that is expected, not a failure. **Two post-processing rules, then a validation gate:**
