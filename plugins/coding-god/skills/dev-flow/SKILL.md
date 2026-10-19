@@ -186,34 +186,16 @@ Invariants: review always precedes test within a pass; both review issues and te
 
 The two-line form above is for fixes that change no behavior (a typo, a config value, a rename). When the fix changes behavior — the usual case for a review finding or a failing test — the group uses the full Node 4 red/green/refactor triplet instead (`N.1` failing test that reproduces the finding / `N.2` implement / `N.3` refactor). Never reuse an existing task ID.
 
-#### Worker drive model — prefer warm when available, cold fallback
+#### Worker drive model
 
-The orchestrator returns to the worker once per apply round and once per test round. There are two ways to do that:
+The orchestrator returns to the worker once per apply round and once per test round. Two transports; loop logic, payloads, and the `.devflow-state.json` contract are identical on both:
 
-- **Warm (preferred, use whenever available):** keep one long-lived worker and resume it via the `SendMessage` tool to its captured agent ID, preserving its full in-context history across rounds (no cold-start, no re-reading refs). **`SendMessage` only exists when Claude Code's experimental agent-teams feature is enabled** (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, set at session start). See the README "Configuration" section. When this path is available it is the default — pick it over cold.
-- **Cold (fallback, always works):** every round dispatches a **fresh** `dev-flow-implement` via the Agent tool (`subagent_type: dev-flow-implement`), passing `state_file` and `resume_from_node: <N>`. The worker rebuilds context by reading `.devflow-state.json`, `tasks.md`, and the working tree. Use this only when warm is confirmed unavailable.
+- **Warm (preferred):** one long-lived `dev-flow-implement`, resumed each round with `SendMessage` to its captured agent ID, keeping its in-context history. Exists only when agent-teams is enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` at session start — see the README "Configuration" section).
+- **Cold (fallback):** a fresh `dev-flow-implement` via the Agent tool (`subagent_type: dev-flow-implement`) each round, passing `state_file` and `resume_from_node: <N>`; it rebuilds context from `.devflow-state.json`, `tasks.md`, and the working tree.
 
-**Detect once, before the first dispatch — and prefer warm if it's there:**
+**Detect once, before the first dispatch.** `SendMessage` is a deferred tool, so its absence from the loaded tool list proves nothing. Run `ToolSearch` with `select:SendMessage`: if it resolves, use warm for every round; only if it cannot resolve, use cold for every round.
 
-`SendMessage` is a **deferred tool**: when agent-teams is enabled it does NOT appear in your directly-loaded tool list — it shows up only by name in the `<system-reminder>` deferred-tools block, and its schema must be fetched with `ToolSearch` before use. So a naive "is `SendMessage` in my loaded tools?" check will say *no* even when warm is fully available, and you will wrongly fall back to cold.
-
-Detect correctly:
-
-1. Look for `SendMessage` in the deferred-tools reminder, OR run `ToolSearch` with `select:SendMessage`.
-2. If it resolves → warm is available → **use the warm path** and capture/reuse the worker's agent ID across rounds.
-3. Only if `ToolSearch` cannot resolve `SendMessage` at all → use the cold fallback for every round.
-
-Do not default to cold out of caution: absence from the loaded tool list is NOT evidence that warm is unavailable — only a failed `ToolSearch` is. Equally, do not assume warm without resolving the tool — a session without the flag genuinely has no `SendMessage`, and silently expecting it would strand the loop.
-
-**Mid-loop warm failure → fall back to cold for that round.** A warm worker can die between rounds (long-lived agent expires, captured agent ID becomes invalid, or `SendMessage` returns an error). This is a discrete, catchable event — handle it, do not abort the loop:
-
-1. Attempt the round via `SendMessage` to the captured agent ID.
-2. If `SendMessage` errors or the worker is gone → for **this round**, dispatch a **fresh** `dev-flow-implement` via the Agent tool with `state_file` + `resume_from_node: <N>` (the cold path). `.devflow-state.json` is kept current every round, so the cold worker resumes with full durable context — no progress is lost and no loop counter is consumed by the transport swap.
-3. After a successful cold recovery, try warm again on the next round (re-capture a new agent ID). Persistent warm failure → stay cold for the remainder; record `"warm worker unavailable mid-loop, fell back to cold"` in `deviations`.
-
-Never re-run dev-flow from Node 1 to recover from a warm-transport failure — the state file is the recovery contract.
-
-Either way the loop logic, payloads, and `.devflow-state.json` contract are identical — only the round-to-round transport differs. The state file (below) is what makes the cold baseline correct, so it must stay current regardless of which path is used.
+**Mid-loop warm failure.** If `SendMessage` errors or the worker is gone, run that round cold (fresh worker, `state_file` + `resume_from_node: <N>` — no progress lost, no loop counter consumed), then try warm again next round with a newly captured agent ID. If warm keeps failing, stay cold and record `"warm worker unavailable mid-loop, fell back to cold"` in `deviations`. Never re-run dev-flow from Node 1 to recover: the state file is the recovery contract, so keep it current every round on either transport.
 
 #### Node 5 — Apply worker dispatch
 
