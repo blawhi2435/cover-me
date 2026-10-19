@@ -26,7 +26,7 @@ Create one todo per node (all `pending`):
 
 1. Brainstorm spec
 2. Confirm + create branch
-3. Create change (name, skip_specs, design stub)
+3. Create change and derive proposal, specs, design stub from the spec
 4. opsx:ff (test-first tasks.md)
 5. opsx:apply (TDD + coding style)
 6. Code review
