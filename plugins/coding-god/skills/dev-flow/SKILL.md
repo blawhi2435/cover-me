@@ -83,14 +83,14 @@ Ask the user: "要開 branch 開發嗎？"
 - If no → halt the flow, return to user.
 - If yes → derive branch name per `references/branch-naming.md`, show it to the user, allow override, then `git checkout -b <name>`.
 
-### Node 3 — Create the change (no skill invocation)
+### Node 3 — Create the change and derive its artifacts (no skill invocation)
 
 Derive the change name from the approved brainstorm spec's title: kebab-case, at most five words (e.g. `csv-export-with-quoting`). Then, in this order:
 
-1. **Decide `skip_specs`.** If the approved spec changes nothing a user or downstream system can observe (pure refactor, tooling, config, docs), confirm with the user: "這個 change 沒有 spec 層級的行為改變，要設 `skip_specs: true` 嗎？". If behavior changes, leave `skip_specs` unset — the change must carry at least one delta spec.
+1. **Read `## Requirements`.** If the spec has no `## Requirements` section, halt: "spec has no `## Requirements` section; add it (see Node 1) or write `Capability: none`". If it says `Capability: none`, the change opts out of specs (`skip_specs`); a `Capability: none` line next to any fenced block, or a `Capability:` line without a fenced block, is also a halt — never derive an empty delta. The user approved this spec, so no further `skip_specs` question is asked.
 2. Run `openspec new change "<change-name>"`. If the CLI reports that the name already exists, append `-2`, `-3`, … until it succeeds, and use the name that succeeded from here on.
-3. If step 1 answered yes, add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line. Do not create delta spec files for such a change — `openspec validate` rejects `skip_specs` and delta specs together.
-4. Write `openspec/changes/<change-name>/design.md` with exactly this body. It is the whole design artifact; the source spec carries the design, and `opsx:ff` treats a design.md that exists as done:
+3. If step 1 found `Capability: none`, add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line, and write no `specs/` files.
+4. Write `openspec/changes/<change-name>/design.md` with exactly this body. It is the whole design artifact; the source spec's `## Design` carries the design, and `opsx:ff` treats a design.md that exists as done:
 
    ```markdown
    # Design
@@ -104,9 +104,47 @@ Derive the change name from the approved brainstorm spec's title: kebab-case, at
    <only items the opsx workflow requires that aren't in the source spec — typically empty>
    ```
 
-5. Record `change_name` for the later nodes.
+5. **Write `openspec/changes/<change-name>/proposal.md` by copying spec sections**, not by summarizing them:
 
-Do not invoke `opsx:new`: it stops after scaffolding and writes no artifact, and `opsx:ff` in Node 4 generates every remaining artifact itself. Do not write `tasks.md` or `proposal.md` here — `openspec status` is file-existence only, and a file created now would make `opsx:ff` skip generating it.
+   ```markdown
+   # Proposal
+
+   > Source spec: `<relative path to brainstorm spec from Node 1>`
+
+   ## Why
+
+   <body of the spec's `## Problem`, verbatim>
+
+   ## What Changes
+
+   <body of the spec's `## Goal`, verbatim>
+
+   ## Capabilities
+
+   ### New Capabilities
+   - `<capability-path>`: <the block's `## Purpose` sentence>        ← one bullet per `Capability: … (new)`; write `None.` if there are none
+
+   ### Modified Capabilities
+   - `<capability-path>`: <the requirement names under its MODIFIED / REMOVED / RENAMED headings>   ← one bullet per `Capability: … (existing)`; write `None.` if there are none
+
+   ## Impact
+
+   <body of the spec's `## Affected files`, verbatim>
+   ```
+
+   For `Capability: none`, the Capabilities section is the single line `None — this change sets \`skip_specs: true\`.`
+
+6. **Write each delta spec by copying its fenced block byte-for-byte** to `openspec/changes/<change-name>/specs/<capability-path>/spec.md` — the block's content only, without the surrounding fence lines. Do not reword, reorder, or add requirements; the user approved this text.
+7. **Validate now, before Node 4:**
+
+   ```bash
+   openspec validate <change-name> --strict
+   ```
+
+   It must report the change valid with no errors and no warnings. A problem here is in the spec's `## Requirements` (heading level, missing scenario, wrong capability path, Purpose too short): fix it **in the brainstorm spec first**, re-copy, re-validate. If the fix changes what a requirement says, show the user the diff before continuing — the spec is what they approved.
+8. Record `change_name` for the later nodes.
+
+Do not invoke `opsx:new`: it stops after scaffolding and writes no artifact. Do not write `tasks.md` here — `openspec status` is file-existence only, and `tasks.md` is the one artifact `opsx:ff` must generate in Node 4.
 
 ### Node 4 — opsx:ff with the shape declared up front
 
