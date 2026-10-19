@@ -74,7 +74,7 @@ Preview line: `[dev-graph] blocked /Users/me/proj/api`. `task` carries the task 
 - `scope` — a task needs behavior the spec does not describe, or asks to drop or narrow specified behavior.
 - `loop_limit` — the Nodes 5–7 apply/review/test loop hit its cap (see dev-flow's `references/loop-limits.md`). `node` is `6` for the review loop or `7` for the test loop, so the dispatcher's once-only override is tracked per `(child, node)`.
 - `env` — an environment problem the child cannot fix itself (containers, credentials, missing tooling).
-- `other` — anything else dev-flow would otherwise ask the user about (a `skip_specs` confirmation, a shadow-skill choice, an unexpected commit-grouping question, a file found outside the commit allowlist at Node 10, or any other halt-and-surface).
+- `other` — anything else dev-flow would otherwise ask the user about (a child spec missing a section dev-flow's Node 1 requires, a shadow-skill choice, an unexpected commit-grouping question, a file found outside the commit allowlist at Node 10, or any other halt-and-surface).
 
 Which `blocked` messages dev-graph decides itself, which it escalates to the user, and in what order the rules apply is defined once in `../SKILL.md` G6. This file only defines the message forms and `kind` meanings.
 

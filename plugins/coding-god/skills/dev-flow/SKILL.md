@@ -26,7 +26,7 @@ Create one todo per node (all `pending`):
 
 1. Brainstorm spec
 2. Confirm + create branch
-3. Create change (name, skip_specs, design stub)
+3. Create change and derive proposal, specs, design stub from the spec
 4. opsx:ff (test-first tasks.md)
 5. opsx:apply (TDD + coding style)
 6. Code review
@@ -43,24 +43,54 @@ Mark each `in_progress` on entry, `completed` on exit. Loop iterations update ex
 ### Node 1 — Brainstorm
 Invoke `superpowers:brainstorming`. Output: a spec file. Do not proceed until the user has approved the spec.
 
-Two overrides apply while brainstorming runs inside dev-flow:
+Three overrides apply while brainstorming runs inside dev-flow:
 
 - **Its terminal state does not apply.** brainstorming ends by invoking `writing-plans`; do not. `opsx:ff` in Node 4 produces the task list. After the user approves the spec, go straight to Node 2.
-- **The spec must end with a `## References` section** in the format Node 4.5 reads (`- [ ] Mockup: …`, `- [ ] Reference component: …`, `- [ ] Design tokens: …`, `- [ ] API contract / schema: …`). If the change has no UI, design, or contract input, the single entry is `- [ ] (none — purely backend/internal)`. Add the section before asking the user to approve the spec.
+- **The spec uses these sections, in this order, with these exact headings.** Node 3 copies from them mechanically, so the names are not stylistic:
+  - `## Problem` — why; becomes `proposal.md`'s "Why" verbatim.
+  - `## Goal` — what changes, as bullets, non-goals included; becomes "What Changes" verbatim.
+  - `## Design` — how, as decided with the user; stays in this file (design.md points here).
+  - `## Affected files` — paths and systems touched; becomes "Impact" verbatim.
+  - `## Requirements` — the behavior contract, in the format below; becomes the delta spec(s) verbatim.
+  - `## References` — design inputs for Node 4.5 (`- [ ] Mockup: …`, `- [ ] Reference component: …`, `- [ ] Design tokens: …`, `- [ ] API contract / schema: …`), or the single entry `- [ ] (none — purely backend/internal)`.
+- **`## Requirements` is written in OpenSpec's delta format, inside fenced blocks, so the user approves the exact text that will be archived.** Before writing it, run `openspec list --specs` to see the existing capabilities. Then, for each capability this change touches, write one `Capability:` line followed by one fenced `markdown` block:
+
+  ````markdown
+  Capability: `<capability-path>` (new)
+
+  ```markdown
+  # Spec Delta
+
+  ## Purpose
+
+  <one or two sentences, at least 50 characters, on what the capability is for>
+
+  ## ADDED Requirements
+
+  ### Requirement: <name>
+  The system SHALL <normative statement>.
+
+  #### Scenario: <name>
+  - **WHEN** <condition>
+  - **THEN** <expected outcome>
+  ```
+  ````
+
+  Rules, enforced by the OpenSpec CLI at validation: an existing capability uses its exact path from `openspec list --specs`, is marked `(existing)`, and its block has **no** `## Purpose`; a MODIFIED requirement copies the **entire existing requirement block** (from `### Requirement:` through all its scenarios) out of `openspec/specs/<path>/spec.md` under `## MODIFIED Requirements` and edits it, never a partial rewrite; a REMOVED requirement carries `**Reason**:` and `**Migration**:`; every requirement has at least one scenario; scenarios use exactly four hashtags (`#### Scenario:`); requirement text uses SHALL/MUST. A change with no spec-level behavior change (pure refactor, tooling, config, docs) writes the single line `Capability: none` and no block — do not invent a requirement to fill the section.
 
 ### Node 2 — Branch
 Ask the user: "要開 branch 開發嗎？"
 - If no → halt the flow, return to user.
 - If yes → derive branch name per `references/branch-naming.md`, show it to the user, allow override, then `git checkout -b <name>`.
 
-### Node 3 — Create the change (no skill invocation)
+### Node 3 — Create the change and derive its artifacts (no skill invocation)
 
 Derive the change name from the approved brainstorm spec's title: kebab-case, at most five words (e.g. `csv-export-with-quoting`). Then, in this order:
 
-1. **Decide `skip_specs`.** If the approved spec changes nothing a user or downstream system can observe (pure refactor, tooling, config, docs), confirm with the user: "這個 change 沒有 spec 層級的行為改變，要設 `skip_specs: true` 嗎？". If behavior changes, leave `skip_specs` unset — the change must carry at least one delta spec.
+1. **Check the spec's sections, then read `## Requirements`.** If any of `## Problem`, `## Goal`, `## Affected files`, or `## Requirements` is missing, halt naming the missing section: "spec has no `## <section>` section; add it (see Node 1)". Node 3 copies these sections; it never summarizes or invents them. In `## Requirements`, `Capability: none` must be the only `Capability:` line and have no fenced block — then the change opts out of specs (`skip_specs`). A `Capability: none` line alongside any other `Capability:` line or any fenced block, or a `Capability:` line without a fenced block, is also a halt — never derive an empty delta. The user approved this spec, so no further `skip_specs` question is asked.
 2. Run `openspec new change "<change-name>"`. If the CLI reports that the name already exists, append `-2`, `-3`, … until it succeeds, and use the name that succeeded from here on.
-3. If step 1 answered yes, add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line. Do not create delta spec files for such a change — `openspec validate` rejects `skip_specs` and delta specs together.
-4. Write `openspec/changes/<change-name>/design.md` with exactly this body. It is the whole design artifact; the source spec carries the design, and `opsx:ff` treats a design.md that exists as done:
+3. If step 1 found `Capability: none`, add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line, and write no `specs/` files.
+4. Write `openspec/changes/<change-name>/design.md` with exactly this body. It is the whole design artifact; the source spec's `## Design` carries the design, and `opsx:ff` treats a design.md that exists as done:
 
    ```markdown
    # Design
@@ -74,20 +104,56 @@ Derive the change name from the approved brainstorm spec's title: kebab-case, at
    <only items the opsx workflow requires that aren't in the source spec — typically empty>
    ```
 
-5. Record `change_name` for the later nodes.
+5. **Write `openspec/changes/<change-name>/proposal.md` by copying spec sections**, not by summarizing them:
 
-Do not invoke `opsx:new`: it stops after scaffolding and writes no artifact, and `opsx:ff` in Node 4 generates every remaining artifact itself. Do not write `tasks.md` or `proposal.md` here — `openspec status` is file-existence only, and a file created now would make `opsx:ff` skip generating it.
+   ```markdown
+   # Proposal
+
+   > Source spec: `<relative path to brainstorm spec from Node 1>`
+
+   ## Why
+
+   <body of the spec's `## Problem`, verbatim>
+
+   ## What Changes
+
+   <body of the spec's `## Goal`, verbatim>
+
+   ## Capabilities
+
+   ### New Capabilities
+   - `<capability-path>`: <the block's `## Purpose` text>
+
+   ### Modified Capabilities
+   - `<capability-path>`: <every requirement name in the block>
+
+   ## Impact
+
+   <body of the spec's `## Affected files`, verbatim>
+   ```
+
+   Under New Capabilities, one bullet per `Capability: … (new)`, carrying the block's whole `## Purpose` text; under Modified Capabilities, one bullet per `Capability: … (existing)`, listing every `### Requirement:` name in that block whatever heading it sits under (ADDED, MODIFIED, REMOVED, or RENAMED); a heading with no entries gets the single line `None.`. For `Capability: none`, the whole Capabilities section is the single line `None — this change sets skip_specs: true.`
+
+6. **Write each delta spec by copying its fenced block byte-for-byte** to `openspec/changes/<change-name>/specs/<capability-path>/spec.md` — the block's content only, without the surrounding fence lines. Do not reword, reorder, or add requirements; the user approved this text.
+7. **Validate now, before Node 4:**
+
+   ```bash
+   openspec validate <change-name> --strict
+   ```
+
+   It must report the change valid with no errors and no warnings. A problem here is in the spec's `## Requirements` (heading level, missing scenario, wrong capability path, Purpose too short): fix it **in the brainstorm spec first**, re-copy, re-validate. If the fix changes what a requirement says, show the user the diff before continuing — the spec is what they approved.
+8. Record `change_name` for the later nodes.
+
+Do not invoke `opsx:new`: it stops after scaffolding and writes no artifact. Do not write `tasks.md` here — `openspec status` is file-existence only, and `tasks.md` is the one artifact `opsx:ff` must generate in Node 4.
 
 ### Node 4 — opsx:ff with the shape declared up front
 
 Invoke `opsx:ff`, passing this brief as its input (fill the placeholders):
 
 ```
-Change `<change-name>` already exists at `openspec/changes/<change-name>/`. Do not run `openspec new change` and do not suggest `opsx:continue` — start from your step 3 (artifact build order) and generate every missing required artifact.
+Change `<change-name>` already exists at `openspec/changes/<change-name>/`. Do not run `openspec new change` and do not suggest `opsx:continue` — start from your step 3 (artifact build order). `proposal.md`, `design.md`, and every file under `specs/` already exist and are final: do not modify them, and do not re-inspect the codebase for anything they or the source spec already decide. The only artifact left to generate is `tasks.md`.
 
-Source spec: `<spec_path>`. `proposal.md` summarizes that spec; do not re-derive requirements or re-inspect the codebase for anything the spec already decides.
-
-`design.md` already exists and is final. Do not modify it.
+Source spec: `<spec_path>`. Read its `## Design` section for how the work is to be built; read `specs/` for what must be true when it is done. A change with `skip_specs: true` has no `specs/` directory and no spec-level behavior change — then the source spec's `## Goal` is the whole scope; do not look for requirements elsewhere.
 
 `tasks.md` must use this layout. Every task that is not pure schema/migration/config/docs work is its own `## N.` group with exactly three flat checkboxes:
 
@@ -100,11 +166,11 @@ Source spec: `<spec_path>`. `proposal.md` summarizes that spec; do not re-derive
 One behavior per group — never several behaviors under one heading, and no broad groups such as "Core Implementation". A schema/migration/config/docs task is also its own group: write its checkboxes as the work requires (each stating how it is verified) and suffix the heading `<!-- TDD skipped: <reason> -->`. No parent checkbox. Checkboxes at column 0. Only `- [ ]`. Groups numbered sequentially from 1; `N.x` numbered under its own `## N.`.
 ```
 
-For a change that declared `skip_specs: true` in Node 3, `opsx:ff` reports the `specs` artifact as `skipped` and writes no spec files — that is expected, not a failure.
+For a change that opted out of specs in Node 3 (`skip_specs: true`), `opsx:ff` reports the `specs` artifact as `skipped` — that is expected, not a failure.
 
 **Post-ff check — fix, don't rewrite.** After `opsx:ff` returns:
 
-- `design.md` must be byte-identical to the Node 3 stub. If ff changed it, restore the stub.
+- `proposal.md`, `design.md`, and every `specs/**/spec.md` must still be what Node 3 derived. `openspec/` is not under git, so check by re-deriving: compare each file against its source — the spec's `## Problem` / `## Goal` / `## Affected files` bodies for `proposal.md`, the Node 3 stub for `design.md`, the fenced block for each `specs/**/spec.md`. If any differs, rewrite it from the spec exactly as Node 3 did — the user approved that text, and re-deriving is always safe.
 - `tasks.md` must follow the layout in the brief. The OpenSpec CLI parses this file, so these are not stylistic: a `- [ ] Task N:` parent line is counted as a task of its own and leaves the change permanently "incomplete"; a `3.1` under `## 2.` makes `openspec validate` warn on every such line; any marker other than `- [ ]` / `- [x]` reads as unfinished. If a group violates the layout (several behaviors under one heading, a parent checkbox, a misnumbered checkbox, a non-standard marker, a TDD-exempt group without its `<!-- TDD skipped: … -->` note), fix that group only — split it into one `## N.` group per behavior and renumber the groups that follow so every ID is unique. Do not rewrite groups that already comply.
 
 **Validation gate — before any worker dispatch.** Run:

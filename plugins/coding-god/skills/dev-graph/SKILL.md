@@ -62,7 +62,7 @@ G2 also creates `.devgraph-state.json` with `graph_id = <YYYY-MM-DD>-<topic slug
 
 ### G3 — Split
 
-Write each group's child spec into its own repository, in dev-flow's own locations: `<repo>/docs/superpowers/specs/<date>-<topic>-design.md`, with a `## References` section as dev-flow's Node 4.5 expects. Decide each group's branch name using `../dev-flow/references/branch-naming.md`.
+Write each group's child spec into its own repository, in dev-flow's own locations: `<repo>/docs/superpowers/specs/<date>-<topic>-design.md`, with every section dev-flow's Node 1 requires (`## Problem`, `## Goal`, `## Design`, `## Affected files`, `## Requirements` in the fenced delta format, `## References`), so the child's Node 3 can derive its OpenSpec artifacts without asking. Decide each group's branch name using `../dev-flow/references/branch-naming.md`.
 
 **Contract alignment.** Applies whenever two or more groups call each other. Three layers, the first two mandatory:
 
@@ -97,7 +97,7 @@ A child sends `blocked` wherever dev-flow in dispatched mode would otherwise ask
 
 | `kind` | dev-graph does |
 |---|---|
-| `other` — how to implement, a choice between valid approaches, a dev-flow prompt needing an answer (`skip_specs`, shadow-skill choice, an unexpected-commit-grouping question) | Decides from the spec and contract; replies in plain text; child continues |
+| `other` — how to implement, a choice between valid approaches, a dev-flow prompt needing an answer (a child spec missing a section Node 1 requires — dev-graph fixes the spec it wrote in G3 and replies, shadow-skill choice, an unexpected-commit-grouping question) | Decides from the spec and contract; replies in plain text; child continues |
 | `contract_change` | Honored only when the change resolves an ambiguity or omission **within** the approved spec's feature; a request for a new endpoint or capability the spec does not call for is handled as `scope` instead. dev-graph authors the contract edit **in its own words** from the spec — never pastes the child's text — and logs the diff in `decisions`. Then updates the canonical contract and every copy. Replies to the asking child, and to every other affected child — including one already `ready` — with `contract updated — re-read <contract_path>, append a fix group for the affected tasks, re-run Nodes 5–7, then send ready again`, and sets each of them back to `dispatched` |
 | `scope` — the child needs behavior the spec does not describe, or wants to drop or narrow specified behavior | **First report:** does not expand or narrow scope. Replies with a concrete instruction: implement exactly what the spec says, the extra is out of scope; if the task genuinely cannot be completed that way, leave it unchecked and report `scope` again stating so. Logs the request and the refusal |
 | `loop_limit` | First report for a given `(child, node)`: replies with the exact string — `override loop cap once: reset the review counter and continue` for node 6, or `override loop cap once: reset the test counter and continue` for node 7. (`<review\|test>` elsewhere in these docs is a placeholder for these two literal strings, never sent verbatim.) Second report for the same `(child, node)`: marks the child `failed`, sends `stop` |
