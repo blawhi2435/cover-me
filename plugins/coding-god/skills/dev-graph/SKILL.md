@@ -67,7 +67,7 @@ Write each group's child spec into its own repository, in dev-flow's own locatio
 **Contract alignment.** Applies whenever two or more groups call each other. Three layers, the first two mandatory:
 
 1. **One canonical artifact.** Produced in G1 as `docs/superpowers/specs/<date>-<topic>-graph-contract.md` in the main session's cwd. G3 copies it **verbatim** into each child repository as `<repo>/docs/superpowers/specs/<date>-<topic>-contract.md`; the copy's first line names the canonical path it was copied from.
-2. **Conformance tests on both sides.** Each child spec must require tasks that assert conformance with the contract: the backend side tests its real handlers' response shapes and error codes against it, the frontend side tests its API client's types and mocks against it. `opsx:ff` turns this requirement into ordinary Rule B TDD groups inside the child's own dev-flow run — dev-flow itself needs no change for this.
+2. **Conformance tests on both sides.** Each child spec must require tasks that assert conformance with the contract: the backend side tests its real handlers' response shapes and error codes against it, the frontend side tests its API client's types and mocks against it. `opsx:ff` turns this requirement into ordinary Node 4 TDD groups inside the child's own dev-flow run — dev-flow itself needs no change for this.
 3. **Changes go through dev-graph only.** A child may not edit the contract file. A needed change arrives as a `blocked` message of kind `contract_change` (see G6).
 
 ### G4 — Sessions

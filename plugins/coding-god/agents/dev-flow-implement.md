@@ -72,7 +72,7 @@ Before any work:
 
 ## Node 5 — opsx:apply (apply mode)
 
-Invoke `opsx:apply`. The inner loop is **per Task**, not per checkbox. Each Task in `tasks.md` is a `## N. <feature>` group holding three flat checkboxes — `N.1` write failing test / `N.2` implement / `N.3` refactor (per dev-flow's Rule B). There is no parent checkbox for the group; the group is done when its checkboxes are. Use the **scoped** test command from CLAUDE.md's `## Test Commands` section — never the full-suite command — substituting the Task's test file path.
+Invoke `opsx:apply`. The inner loop is **per Task**, not per checkbox. Each Task in `tasks.md` is a `## N. <feature>` group holding three flat checkboxes — `N.1` write failing test / `N.2` implement / `N.3` refactor (per dev-flow's Node 4 layout). There is no parent checkbox for the group; the group is done when its checkboxes are. Use the **scoped** test command from CLAUDE.md's `## Test Commands` section — never the full-suite command — substituting the Task's test file path.
 
 Per Task N (one cycle):
 
