@@ -87,7 +87,7 @@ Ask the user: "要開 branch 開發嗎？"
 
 Derive the change name from the approved brainstorm spec's title: kebab-case, at most five words (e.g. `csv-export-with-quoting`). Then, in this order:
 
-1. **Read `## Requirements`.** If the spec has no `## Requirements` section, halt: "spec has no `## Requirements` section; add it (see Node 1) or write `Capability: none`". If it says `Capability: none`, the change opts out of specs (`skip_specs`); a `Capability: none` line next to any fenced block, or a `Capability:` line without a fenced block, is also a halt — never derive an empty delta. The user approved this spec, so no further `skip_specs` question is asked.
+1. **Check the spec's sections, then read `## Requirements`.** If any of `## Problem`, `## Goal`, `## Affected files`, or `## Requirements` is missing, halt naming the missing section: "spec has no `## <section>` section; add it (see Node 1)". Node 3 copies these sections; it never summarizes or invents them. In `## Requirements`, `Capability: none` must be the only `Capability:` line and have no fenced block — then the change opts out of specs (`skip_specs`). A `Capability: none` line alongside any other `Capability:` line or any fenced block, or a `Capability:` line without a fenced block, is also a halt — never derive an empty delta. The user approved this spec, so no further `skip_specs` question is asked.
 2. Run `openspec new change "<change-name>"`. If the CLI reports that the name already exists, append `-2`, `-3`, … until it succeeds, and use the name that succeeded from here on.
 3. If step 1 found `Capability: none`, add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line, and write no `specs/` files.
 4. Write `openspec/changes/<change-name>/design.md` with exactly this body. It is the whole design artifact; the source spec's `## Design` carries the design, and `opsx:ff` treats a design.md that exists as done:
@@ -122,17 +122,17 @@ Derive the change name from the approved brainstorm spec's title: kebab-case, at
    ## Capabilities
 
    ### New Capabilities
-   - `<capability-path>`: <the block's `## Purpose` sentence>
+   - `<capability-path>`: <the block's `## Purpose` text>
 
    ### Modified Capabilities
-   - `<capability-path>`: <the requirement names under its MODIFIED / REMOVED / RENAMED headings>
+   - `<capability-path>`: <every requirement name in the block>
 
    ## Impact
 
    <body of the spec's `## Affected files`, verbatim>
    ```
 
-   Under New Capabilities, one bullet per `Capability: … (new)`; under Modified Capabilities, one bullet per `Capability: … (existing)`; a heading with no entries gets the single line `None.`. For `Capability: none`, the whole Capabilities section is the single line `None — this change sets skip_specs: true.`
+   Under New Capabilities, one bullet per `Capability: … (new)`, carrying the block's whole `## Purpose` text; under Modified Capabilities, one bullet per `Capability: … (existing)`, listing every `### Requirement:` name in that block whatever heading it sits under (ADDED, MODIFIED, REMOVED, or RENAMED); a heading with no entries gets the single line `None.`. For `Capability: none`, the whole Capabilities section is the single line `None — this change sets skip_specs: true.`
 
 6. **Write each delta spec by copying its fenced block byte-for-byte** to `openspec/changes/<change-name>/specs/<capability-path>/spec.md` — the block's content only, without the surrounding fence lines. Do not reword, reorder, or add requirements; the user approved this text.
 7. **Validate now, before Node 4:**
@@ -153,7 +153,7 @@ Invoke `opsx:ff`, passing this brief as its input (fill the placeholders):
 ```
 Change `<change-name>` already exists at `openspec/changes/<change-name>/`. Do not run `openspec new change` and do not suggest `opsx:continue` — start from your step 3 (artifact build order). `proposal.md`, `design.md`, and every file under `specs/` already exist and are final: do not modify them, and do not re-inspect the codebase for anything they or the source spec already decide. The only artifact left to generate is `tasks.md`.
 
-Source spec: `<spec_path>`. Read its `## Design` section for how the work is to be built; read `specs/` for what must be true when it is done.
+Source spec: `<spec_path>`. Read its `## Design` section for how the work is to be built; read `specs/` for what must be true when it is done. A change with `skip_specs: true` has no `specs/` directory and no spec-level behavior change — then the source spec's `## Goal` is the whole scope; do not look for requirements elsewhere.
 
 `tasks.md` must use this layout. Every task that is not pure schema/migration/config/docs work is its own `## N.` group with exactly three flat checkboxes:
 
@@ -170,7 +170,7 @@ For a change that opted out of specs in Node 3 (`skip_specs: true`), `opsx:ff` r
 
 **Post-ff check — fix, don't rewrite.** After `opsx:ff` returns:
 
-- `proposal.md`, `design.md`, and every `specs/**/spec.md` must be byte-identical to what Node 3 wrote. If ff changed any of them, restore Node 3's version — the user approved that text.
+- `proposal.md`, `design.md`, and every `specs/**/spec.md` must still be what Node 3 derived. `openspec/` is not under git, so check by re-deriving: compare each file against its source — the spec's `## Problem` / `## Goal` / `## Affected files` bodies for `proposal.md`, the Node 3 stub for `design.md`, the fenced block for each `specs/**/spec.md`. If any differs, rewrite it from the spec exactly as Node 3 did — the user approved that text, and re-deriving is always safe.
 - `tasks.md` must follow the layout in the brief. The OpenSpec CLI parses this file, so these are not stylistic: a `- [ ] Task N:` parent line is counted as a task of its own and leaves the change permanently "incomplete"; a `3.1` under `## 2.` makes `openspec validate` warn on every such line; any marker other than `- [ ]` / `- [x]` reads as unfinished. If a group violates the layout (several behaviors under one heading, a parent checkbox, a misnumbered checkbox, a non-standard marker, a TDD-exempt group without its `<!-- TDD skipped: … -->` note), fix that group only — split it into one `## N.` group per behavior and renumber the groups that follow so every ID is unique. Do not rewrite groups that already comply.
 
 **Validation gate — before any worker dispatch.** Run:
