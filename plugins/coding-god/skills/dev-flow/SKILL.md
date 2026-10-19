@@ -41,7 +41,12 @@ Mark each `in_progress` on entry, `completed` on exit. Loop iterations update ex
 ## Flow
 
 ### Node 1 — Brainstorm
-Invoke `superpowers:brainstorming`. Output: a spec file. Do not proceed until user has approved the spec.
+Invoke `superpowers:brainstorming`. Output: a spec file. Do not proceed until the user has approved the spec.
+
+Two overrides apply while brainstorming runs inside dev-flow:
+
+- **Its terminal state does not apply.** brainstorming ends by invoking `writing-plans`; do not. `opsx:ff` in Node 4 produces the task list. After the user approves the spec, go straight to Node 2.
+- **The spec must end with a `## References` section** in the format Node 4.5 reads (`- [ ] Mockup: …`, `- [ ] Reference component: …`, `- [ ] Design tokens: …`, `- [ ] API contract / schema: …`). If the change has no UI, design, or contract input, the single entry is `- [ ] (none — purely backend/internal)`. Add the section before asking the user to approve the spec.
 
 ### Node 2 — Branch
 Ask the user: "要開 branch 開發嗎？"
@@ -143,7 +148,7 @@ Skip silently if absent.
    - [ ] (none — purely backend/internal)
    ```
 
-   If the section is missing AND no entry is marked "none", **halt and ask the user** to fill it in or explicitly confirm none. This gate prevents silently dropping design context. Note: shape output does not need to be listed here — Node 4.5 step 1 handles it.
+   Node 1 requires this section; if it is still missing AND no entry is marked "none", **halt and ask the user** to fill it in or explicitly confirm none. This gate prevents silently dropping design context. Note: shape output does not need to be listed here — Node 4.5 step 1 handles it.
 
 3. Stash `ambient_refs` and `design_refs` in `.devflow-state.json` so they survive resume.
 
