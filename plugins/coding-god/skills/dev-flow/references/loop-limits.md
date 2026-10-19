@@ -29,7 +29,7 @@ Recent changes: <git diff --stat HEAD~N>
 
 Wait for user response before any further action.
 
-**In dispatched mode** (see `../SKILL.md` "Dispatched mode"), this three-option menu is sent to the dispatcher as a `blocked` message of kind `loop_limit` instead of shown to the user. The dispatcher may reply `override loop cap once: reset the <review|test> counter and continue` at most once per loop for that child; any other reply is followed exactly as its own text says, same as a normal halt. The child enforces that once-per-loop bound on itself — it records `loop_override_used.<node>` after accepting the first override and sends `blocked` again, rather than resetting, on a second one for the same loop.
+**In dispatched mode** (see `dispatched-mode.md`), this three-option menu is sent to the dispatcher as a `blocked` message of kind `loop_limit` instead of shown to the user. The dispatcher may reply `override loop cap once: reset the <review|test> counter and continue` at most once per loop for that child; any other reply is followed exactly as its own text says, same as a normal halt. The child enforces that once-per-loop bound on itself — it records `loop_override_used.<node>` after accepting the first override and sends `blocked` again, rather than resetting, on a second one for the same loop.
 
 `<review|test>` above is a placeholder, not a literal reply: the two exact strings dev-flow accepts are `override loop cap once: reset the review counter and continue` (node 6) and `override loop cap once: reset the test counter and continue` (node 7).
 
