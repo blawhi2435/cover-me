@@ -11,7 +11,7 @@ Orchestrates an 11-node delivery workflow. This skill **never writes code direct
 
 - **OpenSpec CLI ≥ 1.8.0, with generated skills in sync.** Check both before Node 1:
   1. `openspec --version` must report 1.8.0 or later. Older CLIs do not count indented or non-`-` checkboxes, so their progress numbers disagree with `tasks.md`, and the Node 4 / Node 8 gates below cannot be trusted. If older → halt and tell the user to run `npm i -g @fission-ai/openspec@latest`.
-  2. The `generatedBy` value in the repo's `.claude/skills/openspec-*/SKILL.md` must equal the CLI version. If it differs → halt and tell the user to run `openspec update` in the repo, then restart the session so the regenerated skills load. If the repo has no generated OpenSpec skills (commands-only delivery), skip this check and record `"generatedBy check skipped: no generated skills"` in `deviations`.
+  2. Run `grep -h generatedBy .claude/skills/openspec-*/SKILL.md | sort -u` (do not open the files); the single value it prints must equal the CLI version. If it differs → halt and tell the user to run `openspec update` in the repo, then restart the session so the regenerated skills load. If the repo has no generated OpenSpec skills (commands-only delivery), skip this check and record `"generatedBy check skipped: no generated skills"` in `deviations`.
 - Playwright MCP server must be installed and connected for Node 7.5 (frontend hands-on test). Install via the marketplace (e.g. `/plugin install playwright`), which provides the `mcp__plugin_playwright_playwright__browser_*` tools. Without it, any frontend-touching change halts at Node 7.5 with a blocker — the workflow does NOT silently fall back to writing Python scripts.
 
 ## Announce
@@ -251,8 +251,8 @@ Add `.devflow-state.json` to `.gitignore` if not already present.
 - **Mode**: `apply` or `test`
 - **Environment-readiness expectation** (test mode): explicit instruction to run pre-flight per `references/test-detection.md` before the first test run.
 - **`frontend_hands_on` flag** — default omit (worker auto-detects). Pass `frontend_hands_on: skip` only if the user has explicitly opted out; the worker records it as a deviation.
-- Loop limits reference (`references/loop-limits.md`)
-- Test detection reference (`references/test-detection.md`)
+- Loop limits reference (`references/loop-limits.md`) — the orchestrator owns the caps and reads this file itself
+- Test detection reference — pass the path `references/test-detection.md` only. It is the worker's procedure; the orchestrator does not read it
 
 ### Node 8 — Summary preview + confirmation gate (orchestrator)
 
