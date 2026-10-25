@@ -81,13 +81,13 @@ Three overrides apply while brainstorming runs inside dev-flow:
 ### Node 2 — Branch
 Ask the user: "要開 branch 開發嗎？"
 - If no → halt the flow, return to user.
-- If yes → derive branch name per `references/branch-naming.md`, show it to the user, allow override, then `git checkout -b <name>`.
+- If yes → record the current branch first (`git rev-parse --abbrev-ref HEAD`; this is the **base branch** the work will be reviewed against and the PR will target), then derive the branch name per `references/branch-naming.md`, show it to the user, allow override, then `git checkout -b <name>`. Write the recorded value to `.devflow-state.json` as `base_branch` as soon as the state file exists (see "State file (resume contract)"); never re-detect it later — a detached HEAD or a branch that is not the integration branch is the user's situation to fix at Node 2, not something later nodes guess around.
 
 ### Node 3 — Create the change and derive its artifacts (no skill invocation)
 
 Derive the change name from the approved brainstorm spec's title: kebab-case, at most five words (e.g. `csv-export-with-quoting`). Then, in this order:
 
-1. **Check the spec's sections, then read `## Requirements`.** If any of `## Problem`, `## Goal`, `## Affected files`, or `## Requirements` is missing, halt naming the missing section: "spec has no `## <section>` section; add it (see Node 1)". Node 3 copies these sections; it never summarizes or invents them. In `## Requirements`, `Capability: none` must be the only `Capability:` line and have no fenced block — then the change opts out of specs (`skip_specs`). A `Capability: none` line alongside any other `Capability:` line or any fenced block, or a `Capability:` line without a fenced block, is also a halt — never derive an empty delta. The user approved this spec, so no further `skip_specs` question is asked.
+1. **Check the spec's sections, then read `## Requirements`.** A section runs from its `## ` heading line to the next `## ` heading line **outside any fenced code block** (a line starting with ``` opens or closes a fence); the `## Purpose`, `## ADDED Requirements`, `## MODIFIED Requirements` and similar lines inside a fenced delta block belong to that block and are never section boundaries. Split on that rule, whether by hand or by script — splitting on every `## ` line truncates `## Requirements` at its first inner heading. If any of `## Problem`, `## Goal`, `## Affected files`, or `## Requirements` is missing, halt naming the missing section: "spec has no `## <section>` section; add it (see Node 1)". Node 3 copies these sections; it never summarizes or invents them. In `## Requirements`, `Capability: none` must be the only `Capability:` line and have no fenced block — then the change opts out of specs (`skip_specs`). A `Capability: none` line alongside any other `Capability:` line or any fenced block, or a `Capability:` line without a fenced block, is also a halt — never derive an empty delta. The user approved this spec, so no further `skip_specs` question is asked.
 2. Run `openspec new change "<change-name>"`. If the CLI reports that the name already exists, append `-2`, `-3`, … until it succeeds, and use the name that succeeded from here on.
 3. If step 1 found `Capability: none`, add `skip_specs: true` to `openspec/changes/<change-name>/.openspec.yaml` next to the existing `schema:` line, and write no `specs/` files.
 4. Write `openspec/changes/<change-name>/design.md` with exactly this body. It is the whole design artifact; the source spec's `## Design` carries the design, and `opsx:ff` treats a design.md that exists as done:
@@ -163,14 +163,14 @@ Source spec: `<spec_path>`. Read its `## Design` section for how the work is to 
 - [ ] N.2 Implement minimum code to pass; verify the scoped test run is green
 - [ ] N.3 Refactor if needed; verify the scoped test run stays green
 
-One behavior per group — never several behaviors under one heading, and no broad groups such as "Core Implementation". A schema/migration/config/docs task is also its own group: write its checkboxes as the work requires (each stating how it is verified) and suffix the heading `<!-- TDD skipped: <reason> -->`. No parent checkbox. Checkboxes at column 0. Only `- [ ]`. Groups numbered sequentially from 1; `N.x` numbered under its own `## N.`.
+One behavior per group — never several behaviors under one heading, and no broad groups such as "Core Implementation". No group whose only work is wiring, registration, export, or dependency injection with no behavior of its own: fold that work into the first group whose test needs it, since a wiring group has nothing that can go red. A group's test must be one that the groups before it leave failing — if an earlier group's implementation would already make it pass, merge the two or re-cut the boundary. A schema/migration/config/docs task is also its own group: write its checkboxes as the work requires (each stating how it is verified) and suffix the heading `<!-- TDD skipped: <reason> -->`. No parent checkbox. Checkboxes at column 0. Only `- [ ]`. Groups numbered sequentially from 1; `N.x` numbered under its own `## N.`.
 ```
 
 For a change that opted out of specs in Node 3 (`skip_specs: true`), `opsx:ff` reports the `specs` artifact as `skipped` — that is expected, not a failure.
 
 **Post-ff check — fix, don't rewrite.** After `opsx:ff` returns:
 
-- `proposal.md`, `design.md`, and every `specs/**/spec.md` must still be what Node 3 derived. `openspec/` is not under git, so check by re-deriving: compare each file against its source — the spec's `## Problem` / `## Goal` / `## Affected files` bodies for `proposal.md`, the Node 3 stub for `design.md`, the fenced block for each `specs/**/spec.md`. If any differs, rewrite it from the spec exactly as Node 3 did — the user approved that text, and re-deriving is always safe.
+- `proposal.md`, `design.md`, and every `specs/**/spec.md` must still be what Node 3 derived. `openspec/` is not under git, so check by re-deriving: compare each file against its source — the spec's `## Problem` / `## Goal` / `## Affected files` bodies for `proposal.md` (section extents per Node 3 step 1: headings inside fenced blocks are not boundaries), the Node 3 stub for `design.md`, the fenced block for each `specs/**/spec.md`. If any differs, rewrite it from the spec exactly as Node 3 did — the user approved that text, and re-deriving is always safe.
 - `tasks.md` must follow the layout in the brief. The OpenSpec CLI parses this file, so these are not stylistic: a `- [ ] Task N:` parent line is counted as a task of its own and leaves the change permanently "incomplete"; a `3.1` under `## 2.` makes `openspec validate` warn on every such line; any marker other than `- [ ]` / `- [x]` reads as unfinished. If a group violates the layout (several behaviors under one heading, a parent checkbox, a misnumbered checkbox, a non-standard marker, a TDD-exempt group without its `<!-- TDD skipped: … -->` note), fix that group only — split it into one `## N.` group per behavior and renumber the groups that follow so every ID is unique. Do not rewrite groups that already comply.
 
 **Validation gate — before any worker dispatch.** Run:
@@ -281,7 +281,7 @@ Apply worker return payload: `{ applied_tasks, deviations }`. On halt/blocker, s
 
 **Pre-dispatch shadow-skill check (review skill).** Before invoking, detect potential skill shadowing for `coding-god:code-review` (standalone vs. plugin versions). Surface any duplicates to the user before invoking.
 
-Scope the review to this change only: `git diff main...HEAD` plus the working tree. Do not let the skill default to the entire repo.
+Scope the review to this change only: `git diff <base_branch>...HEAD` plus the working tree, where `<base_branch>` is the `base_branch` value in `.devflow-state.json` recorded at Node 2 (never a hard-coded `main`). Do not let the skill default to the entire repo.
 
 Record each specialist run in `.devflow-state.json` `evidence.specialists` as `{name, verdict, attempts}`.
 
@@ -299,7 +299,7 @@ On halt/blocker (pre-flight failure, unresolvable test failure), surface to the 
 
 #### State file (resume contract)
 
-Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `iteration_log`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
+Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, `base_branch` from Node 2, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `iteration_log`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
 
 The state file is the **resume contract** that makes cold dispatch correct: a fresh `dev-flow-implement` started with the state file path and `resume_from_node: <N>` recovers full durable context. This is the baseline path (used every round when `SendMessage` is unavailable) and also the recovery path when a warm worker expires or `SendMessage` errors. Never re-run dev-flow from Node 1 to recover.
 
@@ -337,6 +337,7 @@ If tasks remain, list the unfinished ones (from `tasks[]` where `done` is false)
 Print a preview summary to the user containing:
 
 - `branch` — branch name from Node 2
+- `base_branch` — from `.devflow-state.json`, recorded at Node 2; the review scope in Node 6 and the PR base in Node 11
 - `change_name` — from Node 3
 - `iterations` — `apply` and `test` counts written by the worker; `review` count written by the orchestrator; all sourced from `.devflow-state.json`
 - `specialists` — from `.devflow-state.json` `evidence.specialists` (recorded by the orchestrator after each Node 6 run)
@@ -369,7 +370,7 @@ If `coding-god:git-commit` cannot be invoked, halt and surface the error to the 
 
 ### Node 11 — Open PR (orchestrator)
 
-Run `gh pr create`. Title derived from the change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan. Print the PR URL to the user as `PR opened: <url>`.
+Run `gh pr create --base <base_branch>`, with `<base_branch>` read from `.devflow-state.json` (recorded at Node 2) — never the repository default and never a hard-coded `main`. Title derived from the change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan. Print the PR URL to the user as `PR opened: <url>`.
 
 ## Dispatched mode
 
