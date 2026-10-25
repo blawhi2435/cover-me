@@ -163,7 +163,7 @@ Source spec: `<spec_path>`. Read its `## Design` section for how the work is to 
 - [ ] N.2 Implement minimum code to pass; verify the scoped test run is green
 - [ ] N.3 Refactor if needed; verify the scoped test run stays green
 
-One behavior per group — never several behaviors under one heading, and no broad groups such as "Core Implementation". A schema/migration/config/docs task is also its own group: write its checkboxes as the work requires (each stating how it is verified) and suffix the heading `<!-- TDD skipped: <reason> -->`. No parent checkbox. Checkboxes at column 0. Only `- [ ]`. Groups numbered sequentially from 1; `N.x` numbered under its own `## N.`.
+One behavior per group — never several behaviors under one heading, and no broad groups such as "Core Implementation". No group whose only work is wiring, registration, export, or dependency injection with no behavior of its own: fold that work into the first group whose test needs it, since a wiring group has nothing that can go red. A group's test must be one that the groups before it leave failing — if an earlier group's implementation would already make it pass, merge the two or re-cut the boundary. A schema/migration/config/docs task is also its own group: write its checkboxes as the work requires (each stating how it is verified) and suffix the heading `<!-- TDD skipped: <reason> -->`. No parent checkbox. Checkboxes at column 0. Only `- [ ]`. Groups numbered sequentially from 1; `N.x` numbered under its own `## N.`.
 ```
 
 For a change that opted out of specs in Node 3 (`skip_specs: true`), `opsx:ff` reports the `specs` artifact as `skipped` — that is expected, not a failure.

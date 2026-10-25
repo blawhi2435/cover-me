@@ -77,7 +77,7 @@ Invoke `opsx:apply`. The inner loop is **per Task**, not per checkbox. Each Task
 
 Per Task N (one cycle):
 
-1. **N.1 — Write failing test.** Run the scoped command for that test file. **MUST observe red.** If the run goes green, the test does not actually exercise the behavior (common cause: assertion against a mock that always returns the expected shape, or a missing `await`). Fix the test before continuing — do not move to N.2.
+1. **N.1 — Write failing test.** Run the scoped command for that test file. **MUST observe red on the test's own assertion.** If the run goes green, the test does not actually exercise the behavior (common cause: assertion against a mock that always returns the expected shape, or a missing `await`). Fix the test before continuing — do not move to N.2. If the run is red only because the code does not compile or a symbol does not exist (the usual first result in Go, TypeScript, Rust, or any compiled language), that is not yet the red N.1 needs: add the smallest stub that makes it compile (the signature with a zero-value or `TODO` return, no logic), re-run, and only when the run fails on the test's assertion tick N.1. A test that goes green against the stub is the same defect as a test that was green from the start — fix the test. Record in `evidence.deviations` any group whose red was never observed on an assertion, naming the group and why.
 2. **N.2 — Implement minimum code.** Re-run the same scoped command. **MUST observe green.** Apply coding-style rules as you write.
 3. **N.3 — Refactor (if needed).** Re-run the scoped command after each refactor step. **MUST stay green.** Keep coding-style rules applied.
 
