@@ -81,7 +81,7 @@ Three overrides apply while brainstorming runs inside dev-flow:
 ### Node 2 — Branch
 Ask the user: "要開 branch 開發嗎？"
 - If no → halt the flow, return to user.
-- If yes → derive branch name per `references/branch-naming.md`, show it to the user, allow override, then `git checkout -b <name>`.
+- If yes → record the current branch first (`git rev-parse --abbrev-ref HEAD`; this is the **base branch** the work will be reviewed against and the PR will target), then derive the branch name per `references/branch-naming.md`, show it to the user, allow override, then `git checkout -b <name>`. Write the recorded value to `.devflow-state.json` as `base_branch` as soon as the state file exists (see "State file (resume contract)"); never re-detect it later — a detached HEAD or a branch that is not the integration branch is the user's situation to fix at Node 2, not something later nodes guess around.
 
 ### Node 3 — Create the change and derive its artifacts (no skill invocation)
 
@@ -281,7 +281,7 @@ Apply worker return payload: `{ applied_tasks, deviations }`. On halt/blocker, s
 
 **Pre-dispatch shadow-skill check (review skill).** Before invoking, detect potential skill shadowing for `coding-god:code-review` (standalone vs. plugin versions). Surface any duplicates to the user before invoking.
 
-Scope the review to this change only: `git diff main...HEAD` plus the working tree. Do not let the skill default to the entire repo.
+Scope the review to this change only: `git diff <base_branch>...HEAD` plus the working tree, where `<base_branch>` is the `base_branch` value in `.devflow-state.json` recorded at Node 2 (never a hard-coded `main`). Do not let the skill default to the entire repo.
 
 Record each specialist run in `.devflow-state.json` `evidence.specialists` as `{name, verdict, attempts}`.
 
@@ -299,7 +299,7 @@ On halt/blocker (pre-flight failure, unresolvable test failure), surface to the 
 
 #### State file (resume contract)
 
-Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `iteration_log`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
+Before the first dispatch, write `.devflow-state.json` at the repo root with the initial context (change name, branch, `base_branch` from Node 2, spec path, tasks path, `ambient_refs`, `design_refs`, empty evidence). The orchestrator updates `iterations.review`, `specialists`, `iteration_log`, `test_output_tail`, and `frontend_hands_on` after each node; the worker updates `iterations.apply`, `iterations.test`, and `evidence.deviations`.
 
 The state file is the **resume contract** that makes cold dispatch correct: a fresh `dev-flow-implement` started with the state file path and `resume_from_node: <N>` recovers full durable context. This is the baseline path (used every round when `SendMessage` is unavailable) and also the recovery path when a warm worker expires or `SendMessage` errors. Never re-run dev-flow from Node 1 to recover.
 
@@ -337,6 +337,7 @@ If tasks remain, list the unfinished ones (from `tasks[]` where `done` is false)
 Print a preview summary to the user containing:
 
 - `branch` — branch name from Node 2
+- `base_branch` — from `.devflow-state.json`, recorded at Node 2; the review scope in Node 6 and the PR base in Node 11
 - `change_name` — from Node 3
 - `iterations` — `apply` and `test` counts written by the worker; `review` count written by the orchestrator; all sourced from `.devflow-state.json`
 - `specialists` — from `.devflow-state.json` `evidence.specialists` (recorded by the orchestrator after each Node 6 run)
@@ -369,7 +370,7 @@ If `coding-god:git-commit` cannot be invoked, halt and surface the error to the 
 
 ### Node 11 — Open PR (orchestrator)
 
-Run `gh pr create`. Title derived from the change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan. Print the PR URL to the user as `PR opened: <url>`.
+Run `gh pr create --base <base_branch>`, with `<base_branch>` read from `.devflow-state.json` (recorded at Node 2) — never the repository default and never a hard-coded `main`. Title derived from the change name (`feat: <change-name>` or matching project commit style — check `git log` first). Body: link to spec, summary of changes, test plan. Print the PR URL to the user as `PR opened: <url>`.
 
 ## Dispatched mode
 

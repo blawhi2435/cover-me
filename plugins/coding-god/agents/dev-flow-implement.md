@@ -38,6 +38,7 @@ At every node boundary (entry and exit), update `.devflow-state.json` with:
 {
   "change_name": "...",
   "branch": "...",
+  "base_branch": "...",
   "spec_path": "...",
   "tasks_path": "...",
   "ambient_refs": [],
@@ -127,7 +128,7 @@ Automated unit/integration tests catch regressions but not "the button does noth
 **Detection — does this change need it?** Yes if any of:
 
 - `design_refs` contains a mockup, reference component, or design token entry, OR
-- `tasks.md` or the diff (`git diff main...HEAD`) touches files matching `**/*.{tsx,jsx,vue,svelte,astro}`, `src/app/**`, `src/pages/**`, `src/components/**`, or any route/page/layout file, OR
+- `tasks.md` or the diff (`git diff <base_branch>...HEAD`, with `base_branch` read from `.devflow-state.json`) touches files matching `**/*.{tsx,jsx,vue,svelte,astro}`, `src/app/**`, `src/pages/**`, `src/components/**`, or any route/page/layout file, OR
 - The brainstorm spec's `## References` section was non-empty for UI items.
 
 If none match → record `"frontend_hands_on": "n/a — no UI surface touched"` in state and skip the rest of this section.
