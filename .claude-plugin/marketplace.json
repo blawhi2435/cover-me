@@ -14,8 +14,8 @@
       "category": "development"
     },
     {
-      "name": "claude-notify",
-      "source": "./plugins/claude-notify",
+      "name": "desktop-notify",
+      "source": "./plugins/desktop-notify",
       "description": "Desktop notifications when Claude Code needs your input or finishes a task",
       "category": "development"
     },

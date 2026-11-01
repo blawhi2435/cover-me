@@ -7,7 +7,7 @@ A Claude Code plugin marketplace with AI coding workflow tools.
 | Plugin | Description |
 |--------|-------------|
 | `coding-god` | Full-stack coding workflow — dev-flow, code review, coding style, and git |
-| `claude-notify` | Desktop notifications when Claude Code needs your input or finishes a task |
+| `desktop-notify` | Desktop notifications when Claude Code needs your input or finishes a task |
 | `session-bridge` | Let a local Claude Code session start, instruct and collect results from sessions on other machines (herdr or Remote Control) |
 
 ## Install
@@ -19,7 +19,7 @@ Add the marketplace, then install the plugins you want:
 ```
 /plugin marketplace add blawhi2435/cover-me
 /plugin install coding-god@cover-me
-/plugin install claude-notify@cover-me
+/plugin install desktop-notify@cover-me
 /plugin install session-bridge@cover-me
 ```
 
@@ -39,7 +39,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/blawhi2435/
 
 The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.config/opencode/skills/`, and verify the result. Full steps live in [.opencode/INSTALL.md](./.opencode/INSTALL.md).
 
-> Note: `claude-notify` relies on Claude Code hooks and is not supported on opencode — only `coding-god`'s skills will be installed.
+> Note: `desktop-notify` relies on Claude Code hooks and is not supported on opencode — only `coding-god`'s skills will be installed.
 
 ## Dependencies
 

@@ -31,7 +31,7 @@ Ask the user which to install (default: all). Currently available:
 |--------|-------------|
 | `coding-god` | dev-flow, code review, coding style, git skills |
 
-> `claude-notify` is a Claude Code hook-only plugin and is not supported on opencode — skip it.
+> `desktop-notify` is a Claude Code hook-only plugin and is not supported on opencode — skip it.
 
 ## Step 3 — Symlink skills into opencode's skills directory
 
