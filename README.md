@@ -59,7 +59,7 @@ The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.conf
 - **Transports:** [herdr](https://herdr.dev) over SSH is preferred. It can start remote sessions, read their output directly and copy files. Without herdr, the skill uses Claude Code's built-in Remote Control messaging, which is text only and can't start sessions.
 - **Your remotes** live in `~/.config/session-bridge/remotes.json`. Ask Claude to "add my server as a remote" and it walks you through the setup.
 - **Permission prompts** on a remote are yours to approve: through Remote Control (Claude phone app, claude.ai, Claude Desktop) or by attaching in herdr. The local session never approves them for you.
-- **Files:** screenshots are sent as-is, without redaction. Text files (logs, HAR) are redacted by `scripts/redact.py` before they leave the machine. Files it can't read as text are not sent; a text summary goes instead.
+- **Files:** screenshots are sent as-is, without redaction. Text files (logs, HAR) and quoted log text go through `scripts/redact.py`, a pattern-based redactor for common credential shapes, before they leave the machine. Claude still skims the result, because no pattern list catches every secret. Files it can't read as text are not sent; a text summary goes instead.
 
 See [`plugins/session-bridge/skills/session-bridge/SKILL.md`](plugins/session-bridge/skills/session-bridge/SKILL.md).
 

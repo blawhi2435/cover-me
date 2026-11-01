@@ -14,7 +14,7 @@ When a remote is `blocked`, the job **pauses**. Tell the user:
 - what it is asking, as far as you can read it;
 - where to approve it.
 
-Then wait with a timeout and check again. Don't fail the job, and don't keep sending it work.
+Then wait for the state to leave `blocked`, using explicit `--until` states (see `transport-herdr.md`, Send), with a timeout, and check again. Don't fail the job, and don't keep sending it work.
 
 ## Fewer prompts: the allowlist
 

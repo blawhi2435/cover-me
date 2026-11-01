@@ -29,16 +29,16 @@ herdr --machine <label> pane list
 
 **Existing:** the user names it, or you match it by `cwd` from `agent list`. Use its agent name. If it has none, use its pane id.
 
-**New:** you need a directory on the remote, either absolute, `~`, or starting with `~/`.
+**New:** you need a directory on the remote, either absolute, `~`, or starting with `~/`. **Always single-quote it** (`--cwd '~/infra'`). Unquoted, the local shell expands `~` to the local home before herdr forwards it.
 
 1. Pick a location:
    - If `workspace list` returns at least one workspace, create **one tab** there:
      ```
-     herdr --machine <label> tab create --workspace <workspace_id> --cwd <dir> --label <name> --no-focus
+     herdr --machine <label> tab create --workspace <workspace_id> --cwd '<dir>' --label <name> --no-focus
      ```
    - Only when the remote has no workspace at all:
      ```
-     herdr --machine <label> workspace create --cwd <dir> --label <name> --no-focus
+     herdr --machine <label> workspace create --cwd '<dir>' --label <name> --no-focus
      ```
 
    Either response gives the pane id in `.result.root_pane.pane_id`. Remember the tab id: this job created it.
@@ -60,12 +60,19 @@ herdr --machine <label> pane list
 ## Send
 
 ```
-herdr --machine <label> agent prompt <name> "<brief>" --wait --timeout 600000
+herdr --machine <label> agent prompt <name> "$(cat ~/.cache/session-bridge/<task-id>/brief.md)" --wait --timeout 600000
 ```
+
+Write the brief to a file first and pass it as `"$(cat <file>)"`. Never paste the brief inline between quotes on the command line: briefs carry log excerpts and remote output, which can contain `$(…)`, backticks or `$VAR`, and the local shell would expand or run them. Quoted text goes through `redact.py` first (see `files.md`).
 
 - `agent_blocked` (rejected before sending): the agent is already at a prompt. Treat it as **blocked**, below.
 - `timeout` or `agent_prompt_stalled`: **don't resend.** Run `agent get <name>` and `agent read <name>` first. The prompt may have been delivered.
-- It settles at `blocked`: **pause.** Read the prompt with `agent read`. Tell the user what the remote is asking for, and where to approve it: through Remote Control on the phone, claude.ai or Claude Desktop, or by selecting that machine in the herdr window. Then wait with `agent wait <name> --timeout <ms>` and check again. **Never answer it with `agent send-keys`.**
+- It settles at `blocked`: **pause.** Read the prompt with `agent read`. Tell the user what the remote is asking for, and where to approve it: through Remote Control on the phone, claude.ai or Claude Desktop, or by selecting that machine in the herdr window. Then wait for it to leave `blocked`. A plain `agent wait` returns at once on a blocked agent, so pass explicit states:
+  ```
+  herdr --machine <label> agent wait <name> --until working --until idle --until done --timeout <ms>
+  ```
+  On `working`, go on to **Collect**. On a timeout, it is still blocked: remind the user, and wait again.
+  **Never answer it with `agent send-keys`.**
 
 ## Collect
 

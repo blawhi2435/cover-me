@@ -54,7 +54,10 @@ Details: `references/files.md`.
 
 - Files travel over `scp` (herdr only) to `~/.cache/session-bridge/<task-id>/` on the other side. Send the path in text, and clean up when the task ends.
 - **Screenshots are sent as-is by default.** They are not redacted and not confirmed one by one; the user judges what is on screen.
-- Every **text-bearing file** (logs, HAR, HTTP dumps) goes through `python3 <this skill's dir>/scripts/redact.py <in> <out>` first. Exit 3 means the file is refused (binary or not text): **do not send it**, send a text summary instead.
+- Every **text-bearing file** (logs, HAR, HTTP dumps) goes through `python3 <this skill's dir>/scripts/redact.py <in> <out>` first.
+  - Any exit code other than 0 means the file is refused: **do not send it**, send a text summary instead.
+  - **Exit 0 is not clearance.** The redactor matches known patterns only. Skim the output for anything that still looks like a secret before sending it, and if in doubt, leave it out.
+- **Text you put in a brief gets the same treatment.** Log lines, HTTP traffic or remote output quoted into an `agent prompt` or `SendMessage` go through `redact.py` first: write them to a file, redact, and quote from the output. This is the only protection on the built-in transport.
 - On the built-in transport there is no file channel. Describe what matters in text.
 
 ## 5. Safety rules

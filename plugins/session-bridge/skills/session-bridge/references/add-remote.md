@@ -12,9 +12,10 @@ First ask how they reach the machine and whether they want to use herdr. If they
 
 Requirements: the remote is Linux or macOS (x86_64/aarch64) or Windows (x86_64), the user has normal SSH access to it, and **this session runs inside herdr** (`HERDR_ENV=1`).
 
-1. **Local herdr.** Run `herdr status`.
-   - herdr isn't installed: the user installs it with `curl -fsSL https://herdr.dev/install.sh | sh` (Windows: see herdr.dev), then restarts this Claude session inside herdr.
-   - herdr is installed but this session runs outside it: tell the user to restart this session inside herdr.
+1. **Local herdr.** Check `HERDR_ENV` first. Never run a `herdr` command from outside herdr.
+   - `HERDR_ENV=1`: run `herdr status`, and continue.
+   - `HERDR_ENV` unset, and `command -v herdr` finds it: herdr is installed, but this session runs outside it. Tell the user to restart this session inside herdr.
+   - `HERDR_ENV` unset, and `command -v herdr` finds nothing: the user installs herdr with `curl -fsSL https://herdr.dev/install.sh | sh` (Windows: see herdr.dev), then restarts this Claude session inside herdr.
 2. **Save the machine.** The user runs:
    ```
    herdr machine add <ssh-target> --label <label>
