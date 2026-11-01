@@ -36,6 +36,7 @@ It is per user: not in the plugin (updates would overwrite it) and not in any re
 | `transport` | yes | `herdr` or `builtin`. |
 | `herdr_label` | for `herdr` | The label of the saved herdr machine profile (`herdr machine list --json`). Always used as `--machine <herdr_label>`. |
 | `rc_session_name` | for `builtin` | The fixed name the remote session was given with `claude --remote-control "<name>"` or `/rc <name>`. |
+| `ssh_target` | no | herdr only: the SSH target for `scp`, as passed to `herdr machine add`. See `files.md`. |
 | `projects` | no | Alias → directory on that machine. An absolute path, `~`, or a path starting with `~/`. Lets the user say "start a session for app on build-server" without repeating the path. |
 | `allowlist` | no | Extra `--allowedTools` entries for sessions started there, added to the default list in `transport-herdr.md`. |
 
