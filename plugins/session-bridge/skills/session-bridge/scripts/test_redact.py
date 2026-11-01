@@ -57,6 +57,87 @@ class RedactTextTest(unittest.TestCase):
         self.assertEqual(n, 0)
 
 
+class RealisticLeakTest(unittest.TestCase):
+    """Credential shapes found in real logs; each must not survive."""
+
+    SECRET = "S3CR3TVALUE9"
+
+    def assertGone(self, text):
+        out, n = redact_text(text)
+        self.assertNotIn(self.SECRET, out, out)
+        self.assertGreaterEqual(n, 1)
+        return out
+
+    def test_header_mid_line(self):
+        out = self.assertGone("curl -H 'Authorization: Bearer S3CR3TVALUE9' https://x")
+        self.assertIn("https://x", out)
+
+    def test_header_in_js_and_python_objects(self):
+        self.assertGone("{ Authorization: 'Bearer S3CR3TVALUE9' }")
+        self.assertGone("{'Authorization': 'Bearer S3CR3TVALUE9'}")
+
+    def test_header_in_nested_json(self):
+        self.assertGone('{"headers": {"Authorization": "Bearer S3CR3TVALUE9"}}')
+        self.assertGone('{"headers": {"Cookie": "sid=S3CR3TVALUE9"}}')
+
+    def test_custom_credential_headers(self):
+        for name in ["X-CSRF-Token", "x-xsrf-token", "api-key", "X-Api-Key"]:
+            with self.subTest(name=name):
+                self.assertGone(name + ": S3CR3TVALUE9")
+
+    def test_compound_and_camel_case_keys(self):
+        for key in ["accessToken", "refreshToken", "id_token", "auth_token",
+                    "session_token", "csrf_token", "AWS_SECRET_ACCESS_KEY",
+                    "client-secret", "sessionId", "db_password"]:
+            with self.subTest(key=key):
+                self.assertGone('{"%s": "S3CR3TVALUE9"}' % key)
+                self.assertGone("%s=S3CR3TVALUE9" % key)
+
+    def test_quoted_values(self):
+        self.assertGone('password="pass S3CR3TVALUE9 word"')
+        self.assertGone("password: 'S3CR3TVALUE9'")
+
+    def test_escaped_quote_in_json_value(self):
+        out = self.assertGone('{"password": "abc\\"S3CR3TVALUE9", "user": "bob"}')
+        self.assertIn('"user": "bob"', out)
+
+    def test_url_secrets(self):
+        self.assertGone("GET /cb?code=S3CR3TVALUE9&state=xyz")
+        self.assertGone("https://b.s3.amazonaws.com/f?X-Amz-Signature=S3CR3TVALUE9")
+        out = self.assertGone("https://admin:S3CR3TVALUE9@host/path")
+        self.assertIn("admin", out)
+        self.assertGone("postgres://u:S3CR3TVALUE9@db:5432/app")
+
+    def test_private_key_block(self):
+        self.assertGone(
+            "-----BEGIN PRIVATE KEY-----\nMIIS3CR3TVALUE9\n-----END PRIVATE KEY-----")
+        self.assertGone(
+            "-----BEGIN RSA PRIVATE KEY-----\nS3CR3TVALUE9\n-----END RSA PRIVATE KEY-----")
+
+    def test_unterminated_private_key_block(self):
+        self.assertGone("-----BEGIN PRIVATE KEY-----\nMIIS3CR3TVALUE9\n(truncated)")
+
+    def test_quoted_header_value_masked_once(self):
+        out, n = redact_text("{ Authorization: 'Bearer S3CR3TVALUE9' }")
+        self.assertEqual(out, "{ Authorization: '[REDACTED]' }")
+        self.assertEqual(n, 1)
+
+    def test_known_token_prefixes(self):
+        for tok in ["ghp_S3CR3TVALUE9aaaaaaaaaaaaaaaa", "xoxb-S3CR3TVALUE9-aaaa",
+                    "AKIAS3CR3TVALUE9AAAA", "sk-S3CR3TVALUE9aaaaaaaaaaaa"]:
+            with self.subTest(tok=tok):
+                self.assertGone("using " + tok + " now")
+
+    def test_bearer_in_prose(self):
+        self.assertGone("sent Bearer S3CR3TVALUE9 to the api")
+
+    def test_ordinary_log_line_untouched(self):
+        line = "INFO 200 GET /api/sessions took 12ms status code 200"
+        out, n = redact_text(line)
+        self.assertEqual(out, line)
+        self.assertEqual(n, 0)
+
+
 class RedactHarTest(unittest.TestCase):
     def har(self):
         return {"log": {"entries": [{
@@ -92,6 +173,37 @@ class RedactHarTest(unittest.TestCase):
         redact_har(obj)
         values = [h["value"] for h in obj["log"]["entries"][0]["request"]["headers"]]
         self.assertEqual(values, ["[REDACTED]"] * 3)
+
+
+class RedactHarLeakTest(unittest.TestCase):
+    SECRET = "S3CR3TVALUE9"
+
+    def assertHarClean(self, har):
+        redact_har(har)
+        self.assertNotIn(self.SECRET, json.dumps(har))
+
+    def test_form_params(self):
+        self.assertHarClean({"log": {"entries": [{"request": {"postData": {
+            "params": [{"name": "password", "value": "S3CR3TVALUE9"}]}}}]}})
+
+    def test_custom_header_and_camel_query(self):
+        self.assertHarClean({"log": {"entries": [{"request": {
+            "headers": [{"name": "x-csrf-token", "value": "S3CR3TVALUE9"}],
+            "queryString": [{"name": "accessToken", "value": "S3CR3TVALUE9"}]}}]}})
+
+    def test_redirect_url(self):
+        self.assertHarClean({"log": {"entries": [{"response": {
+            "redirectURL": "https://app/cb#id_token=S3CR3TVALUE9"}}]}})
+
+    def test_websocket_messages(self):
+        self.assertHarClean({"log": {"entries": [{"_webSocketMessages": [
+            {"type": "send", "data": '{"token": "S3CR3TVALUE9"}'}]}]}})
+
+    def test_base64_body_dropped(self):
+        har = {"log": {"entries": [{"response": {"content": {
+            "encoding": "base64", "text": "UzNDUjNUVkFMVUU5"}}}]}}
+        redact_har(har)
+        self.assertNotIn("UzNDUjNUVkFMVUU5", json.dumps(har))
 
 
 class CliTest(unittest.TestCase):
@@ -140,6 +252,12 @@ class CliTest(unittest.TestCase):
 
     def test_cli_refuses_invalid_har(self):
         src = self.write("bad.har", b"{not json")
+        res = run_cli(src, self.path("out.har"))
+        self.assertEqual(res.returncode, 3)
+        self.assertFalse(os.path.exists(self.path("out.har")))
+
+    def test_cli_refuses_har_with_unexpected_shape(self):
+        src = self.write("list.har", b"[1, 2]")
         res = run_cli(src, self.path("out.har"))
         self.assertEqual(res.returncode, 3)
         self.assertFalse(os.path.exists(self.path("out.har")))
