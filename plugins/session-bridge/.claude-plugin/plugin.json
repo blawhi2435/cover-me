@@ -1,5 +1,10 @@
 {
   "name": "session-bridge",
   "description": "Let a local Claude Code session start, instruct and collect results from sessions on other machines (herdr or Remote Control)",
-  "version": "1.0.0"
+  "version": "1.0.1",
+  "author": {
+    "name": "Jerry Chang",
+    "email": "blawhi2435@gmail.com",
+    "url": "https://github.com/blawhi2435"
+  }
 }
