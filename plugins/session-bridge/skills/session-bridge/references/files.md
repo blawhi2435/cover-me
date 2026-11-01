@@ -7,7 +7,7 @@ Files move only on the **herdr transport**, over the same SSH access herdr uses.
 - Each task id names a directory. Use the format `<yyyymmdd-hhmmss>-<4 hex>`, e.g. `20261101-143005-a3f9`.
 - The directory is `~/.cache/session-bridge/<task-id>/`, on whichever side receives a file.
 - Create it on the remote with `ssh <ssh-target> 'mkdir -p ~/.cache/session-bridge/<task-id>'`.
-- **SSH target**: the registry entry's `ssh_target` if set. Otherwise, the target of the herdr profile shown by `herdr machine list --json`. If neither gives one, ask the user for the target they passed to `herdr machine add`, and offer to save it as `ssh_target`.
+- **SSH target**: the registry entry's `ssh_target` if set. Otherwise, the `target` field of the profile in `herdr machine list --json` (e.g. `{"label": "build", "target": "build-host", ...}`). If neither gives one, ask the user for the target they passed to `herdr machine add`, and offer to save it as `ssh_target`.
 - Delete the directory on **both** sides when the task ends. Also delete it if the task is abandoned.
 
 ## Local → remote

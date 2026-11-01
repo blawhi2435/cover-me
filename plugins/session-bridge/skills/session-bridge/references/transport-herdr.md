@@ -29,7 +29,7 @@ herdr --machine <label> pane list
 
 **Existing:** the user names it, or you match it by `cwd` from `agent list`. Use its agent name. If it has none, use its pane id.
 
-**New:** you need a directory on the remote, either absolute, `~`, or starting with `~/`. **Always single-quote it** (`--cwd '~/infra'`). Unquoted, the local shell expands `~` to the local home before herdr forwards it.
+**New:** you need a directory on the remote. **Pass herdr an absolute path.** `tab create --cwd` does not expand `~`: given `'~/infra'` it silently opens the pane in the remote home instead. Unquoted, the local shell expands it to the *local* home. So resolve the remote home once with `ssh <ssh-target> 'echo $HOME'` (SSH target: see `files.md`), turn `~/infra` into `<remote home>/infra`, and check the `cwd` in the response.
 
 1. Pick a location:
    - If `workspace list` returns at least one workspace, create **one tab** there:
@@ -41,14 +41,18 @@ herdr --machine <label> pane list
      herdr --machine <label> workspace create --cwd '<dir>' --label <name> --no-focus
      ```
 
-   Either response gives the pane id in `.result.root_pane.pane_id`. Remember the tab id: this job created it.
+   Either response gives the pane id in `.result.root_pane.pane_id` and its `cwd`; if the `cwd` is not the directory you asked for, close that tab and fix the path. Remember the tab id: this job created it.
+
+   Also create the task directory first, so the session can write there without a prompt (next step): `ssh <ssh-target> 'mkdir -p ~/.cache/session-bridge'`.
 2. **Before the first launch in a job, show the user the exact command and get a yes.** Then run:
    ```
    herdr --machine <label> agent start <name> --kind claude --pane <pane_id> -- \
      --remote-control "<name>" --permission-mode acceptEdits \
+     --add-dir <remote home>/.cache/session-bridge \
      --allowedTools <default allowlist…> <registry allowlist…> <task-specific…>
    ```
    - `<name>` must match `[a-z][a-z0-9_-]{0,31}` and be unique among that remote's live agents. Use the same string for the Remote Control name, so the user finds the session on the phone or on claude.ai.
+   - `acceptEdits` auto-approves edits only inside the session's own directory. `--add-dir` (an absolute remote path) extends that to the task directory, so writing result files there doesn't raise a prompt each time; without it, every file written there asks the user.
    - Use `--permission-mode acceptEdits` by default. **Never `bypassPermissions`, never `--dangerously-skip-permissions`.**
    - Default allowlist, read-only:
      ```
@@ -66,8 +70,8 @@ herdr --machine <label> agent prompt <name> "$(cat ~/.cache/session-bridge/<task
 Write the brief to a file first and pass it as `"$(cat <file>)"`. Never paste the brief inline between quotes on the command line: briefs carry log excerpts and remote output, which can contain `$(…)`, backticks or `$VAR`, and the local shell would expand or run them. Quoted text goes through `redact.py` first (see `files.md`).
 
 - `agent_blocked` (rejected before sending): the agent is already at a prompt. Treat it as **blocked**, below.
-- `timeout` or `agent_prompt_stalled`: **don't resend.** Run `agent get <name>` and `agent read <name>` first. The prompt may have been delivered.
-- It settles at `blocked`: **pause.** Read the prompt with `agent read`. Tell the user what the remote is asking for, and where to approve it: through Remote Control on the phone, claude.ai or Claude Desktop, or by selecting that machine in the herdr window. Then wait for it to leave `blocked`. A plain `agent wait` returns at once on a blocked agent, so pass explicit states:
+- `timeout` or `agent_prompt_stalled`: **don't resend.** Run `agent get <name>` and `agent read <name>` first (`--source visible` if it is blocked). The prompt may have been delivered.
+- It settles at `blocked`: **pause.** Read the prompt with `agent read <name> --source visible`. While an agent is blocked, `--lines` reads fail with `agent_not_idle`. Tell the user what the remote is asking for, and where to approve it: through Remote Control on the phone, claude.ai or Claude Desktop, or by selecting that machine in the herdr window. Then wait for it to leave `blocked`. A plain `agent wait` returns at once on a blocked agent, so pass explicit states:
   ```
   herdr --machine <label> agent wait <name> --until working --until idle --until done --timeout <ms>
   ```

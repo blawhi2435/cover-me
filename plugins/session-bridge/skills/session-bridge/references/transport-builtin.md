@@ -49,6 +49,8 @@ When nothing comes back, suspect these before resending.
 
 ## Collect
 
+The sender's side reports only "accepted by the server, delivery not confirmed"; that's normal for this route. Tested: a reply sent that way did arrive.
+
 - Wait for the reply message.
 - `notify_when_idle` works only for sessions on this machine. Don't use it for remotes.
 - If no reply arrives in a reasonable time:

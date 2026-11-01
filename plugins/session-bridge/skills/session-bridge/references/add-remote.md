@@ -1,6 +1,6 @@
 # Adding a remote
 
-Walk the user through these steps one at a time. Some steps only the user can do: SSH authentication, accepting install or replacement prompts, `/rc`, the first-run "Enable Remote Control?" dialog. For those, say what to run (in Claude Code they can type `! <command>` so the output lands in this conversation) and wait.
+Walk the user through these steps one at a time. Some steps only the user can do: SSH authentication, accepting install or replacement prompts, `/rc`, the first-run "Enable Remote Control?" dialog. For those, say what to run and wait. Short non-interactive commands can be typed as `! <command>` so the output lands in this conversation. **`herdr machine add` cannot**: it needs an interactive terminal to approve the remote install, and under `!` it fails with "run from an interactive terminal to approve installation; machine was not saved". Have the user run it in a normal terminal, such as a new herdr pane.
 
 First ask how they reach the machine and whether they want to use herdr. If they haven't used herdr before, say what it adds:
 
@@ -20,7 +20,7 @@ Requirements: the remote is Linux or macOS (x86_64/aarch64) or Windows (x86_64),
    ```
    herdr machine add <ssh-target> --label <label>
    ```
-   `<ssh-target>` is a host from their SSH config, or `ssh://user@host:port`. Setup does three things:
+   Run it in an interactive terminal, not via `!`. `<ssh-target>` is a host from their SSH config, or `ssh://user@host:port`. Setup does three things:
    - checks the remote for a herdr installation, and **offers to install one** if it finds none;
    - starts the remote's background server;
    - asks before stopping an incompatible running server. That answer is the user's to give, and the default is No.
