@@ -70,7 +70,7 @@ This is how the user approves a remote session's permission prompts from anywher
 
    Push notifications are documented for the phone app.
 
-The user can skip this. The fallback is attaching to the remote pane through herdr (`herdr agent attach`, or selecting the machine in the herdr window) and approving there.
+The user can skip this. The fallback is looking at the remote pane through herdr and approving there. The user can either select the machine in the herdr window, or SSH to the remote and run `herdr agent attach <name>` there. Attachment isn't forwarded through `--machine`.
 
 ## D. Record it
 
