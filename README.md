@@ -7,7 +7,8 @@ A Claude Code plugin marketplace with AI coding workflow tools.
 | Plugin | Description |
 |--------|-------------|
 | `coding-god` | Full-stack coding workflow — dev-flow, code review, coding style, and git |
-| `claude-notify` | Desktop notifications when Claude Code needs your input or finishes a task |
+| `desktop-notify` | Desktop notifications when Claude Code needs your input or finishes a task |
+| `session-bridge` | Let a local Claude Code session start, instruct and collect results from sessions on other machines (herdr or Remote Control) |
 
 ## Install
 
@@ -18,7 +19,8 @@ Add the marketplace, then install the plugins you want:
 ```
 /plugin marketplace add blawhi2435/cover-me
 /plugin install coding-god@cover-me
-/plugin install claude-notify@cover-me
+/plugin install desktop-notify@cover-me
+/plugin install session-bridge@cover-me
 ```
 
 Update to the latest versions:
@@ -37,7 +39,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/blawhi2435/
 
 The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.config/opencode/skills/`, and verify the result. Full steps live in [.opencode/INSTALL.md](./.opencode/INSTALL.md).
 
-> Note: `claude-notify` relies on Claude Code hooks and is not supported on opencode — only `coding-god`'s skills will be installed.
+> Note: `desktop-notify` relies on Claude Code hooks and is not supported on opencode — only `coding-god`'s skills will be installed.
 
 ## Dependencies
 
@@ -49,6 +51,17 @@ The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.conf
 ## `dev-graph`
 
 `coding-god:dev-graph` is a process skill for a **main session** that coordinates `dev-flow` across more than one repository, launching one child session per repository and never writing feature code itself. The user decides at exactly two points: approving the spec, and approving the combined summary before any child archives, commits, or opens a PR. herdr is optional — without it, dev-graph prints a launch command for each child session instead. See [`plugins/coding-god/skills/dev-graph/SKILL.md`](plugins/coding-god/skills/dev-graph/SKILL.md) for the full flow.
+
+## `session-bridge`
+
+`session-bridge` lets the session you're working in drive Claude Code sessions on other machines. It can start a session on a server, hand it a task, wait for it, read its result, and move files both ways. A typical use: your local machine has a browser for Playwright, and the server has the code and the deployment.
+
+- **Transports:** [herdr](https://herdr.dev) over SSH is preferred. It can start remote sessions, read their output directly and copy files. Without herdr, the skill uses Claude Code's built-in Remote Control messaging, which is text only and can't start sessions.
+- **Your remotes** live in `~/.config/session-bridge/remotes.json`. Ask Claude to "add my server as a remote" and it walks you through the setup.
+- **Permission prompts** on a remote are yours to approve: through Remote Control (Claude phone app, claude.ai, Claude Desktop) or by attaching in herdr. The local session never approves them for you.
+- **Files:** screenshots are sent as-is, without redaction. Text files (logs, HAR) and quoted log text go through `scripts/redact.py`, a pattern-based redactor for common credential shapes, before they leave the machine. Claude still skims the result, because no pattern list catches every secret. Files it can't read as text are not sent; a text summary goes instead.
+
+See [`plugins/session-bridge/skills/session-bridge/SKILL.md`](plugins/session-bridge/skills/session-bridge/SKILL.md).
 
 ## Configuration
 

@@ -1,0 +1,10 @@
+{
+  "name": "desktop-notify",
+  "description": "Desktop notifications when Claude Code needs your input or finishes a task (macOS / Linux)",
+  "version": "1.1.1",
+  "author": {
+    "name": "Jerry Chang",
+    "email": "blawhi2435@gmail.com",
+    "url": "https://github.com/blawhi2435"
+  }
+}

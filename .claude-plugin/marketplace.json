@@ -14,9 +14,15 @@
       "category": "development"
     },
     {
-      "name": "claude-notify",
-      "source": "./plugins/claude-notify",
+      "name": "desktop-notify",
+      "source": "./plugins/desktop-notify",
       "description": "Desktop notifications when Claude Code needs your input or finishes a task",
+      "category": "development"
+    },
+    {
+      "name": "session-bridge",
+      "source": "./plugins/session-bridge",
+      "description": "Let a local Claude Code session start, instruct and collect results from sessions on other machines (herdr or Remote Control)",
       "category": "development"
     }
   ]
