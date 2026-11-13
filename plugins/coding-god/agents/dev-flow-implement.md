@@ -58,7 +58,7 @@ At every node boundary (entry and exit), update `.devflow-state.json` with:
 
 The orchestrator owns `iterations.review`, `evidence.specialists`, and `evidence.iteration_log` — do not overwrite them. Update only the fields you own (`last_completed_node`, `iterations.apply` or `iterations.test`, `evidence.test_output_tail`, `evidence.frontend_hands_on`, `evidence.deviations`).
 
-**Worker lifecycle.** The baseline is cold dispatch: each apply and test round may start a **fresh** worker with `state_file` + `resume_from_node`, so you must keep this file current — a fresh worker has to resume from the last completed node without re-running earlier work. When the orchestrator has the `SendMessage` tool available (experimental agent-teams, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), it may instead keep you warm and `SendMessage` you each round, preserving your in-context history. You behave identically either way — the only difference is whether your context carries over or is rebuilt from the state file.
+**Worker lifecycle.** The baseline is cold dispatch: each apply and test round may start a **fresh** worker with `state_file` + `resume_from_node`, so you must keep this file current — a fresh worker has to resume from the last completed node without re-running earlier work. When the orchestrator has the `SendMessage` tool available (on by default from Claude Code 2.1.224), it may instead keep you warm and `SendMessage` you each round, preserving your in-context history. You behave identically either way — the only difference is whether your context carries over or is rebuilt from the state file.
 
 ## Required setup
 

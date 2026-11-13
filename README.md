@@ -50,7 +50,14 @@ The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.conf
 
 ## `dev-graph`
 
-`coding-god:dev-graph` is a process skill for a **main session** that coordinates `dev-flow` across more than one repository, launching one child session per repository and never writing feature code itself. The user decides at exactly two points: approving the spec, and approving the combined summary before any child archives, commits, or opens a PR. herdr is optional — without it, dev-graph prints a launch command for each child session instead. See [`plugins/coding-god/skills/dev-graph/SKILL.md`](plugins/coding-god/skills/dev-graph/SKILL.md) for the full flow.
+`coding-god:dev-graph` is a process skill for a **main session** that runs `dev-flow` in child sessions — one per repository, so it works for a single repository as well as for a change spanning several (for example a backend API and the frontend that calls it). It never writes feature code itself, and you talk only to the main session. You decide at exactly two points: approving the spec, and approving the combined summary before any child archives, commits, or opens a PR.
+
+The main session launches every child itself — you never open a session by hand:
+
+- **Inside [herdr](https://herdr.dev)**, each child starts in its own herdr tab, so you can watch it in a pane.
+- **Otherwise**, each child starts in the background (`claude --bg`). Run `claude attach <id>` to bring one into your terminal; `claude agents` lists them.
+
+Every repository involved must have been opened with `claude` once and its workspace-trust prompt accepted, since a child launched unattended cannot answer it. See [`plugins/coding-god/skills/dev-graph/SKILL.md`](plugins/coding-god/skills/dev-graph/SKILL.md) for the full flow.
 
 ## `session-bridge`
 
@@ -72,25 +79,13 @@ See [`plugins/session-bridge/skills/session-bridge/SKILL.md`](plugins/session-br
 - **Baseline (always works):** a fresh worker is dispatched each round and picks up from `.devflow-state.json` + `resume_from_node`. No setup required.
 - **Warm worker (optimization):** the orchestrator keeps one long-lived worker and resumes it via the `SendMessage` tool, preserving the worker's full context (prior tool calls and reasoning) across rounds.
 
-The warm path needs the `SendMessage` tool, which Claude Code only loads when the experimental **agent teams** feature is enabled. To turn it on, set:
+The warm path needs the `SendMessage` tool. It is part of Claude Code's cross-session messaging, on by default from **Claude Code 2.1.224** — no setting or flag is needed. `dev-flow` **prefers the warm worker** whenever the tool is available and falls back to the baseline path otherwise. Note that `SendMessage` is a *deferred* tool: it won't show up in the orchestrator's directly-loaded tool list — it must be resolved via `ToolSearch` (`select:SendMessage`). The skill detects it this way, so it does not silently stay cold just because the tool isn't pre-loaded.
 
-```json
-{
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  }
-}
-```
+> Earlier versions of this README required `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. That flag enables Claude Code's experimental agent-teams feature, which neither `dev-flow` nor `dev-graph` uses; you can remove it.
 
-in your `settings.json` (user-level `~/.claude/settings.json`, or project-level `.claude/settings.json`), then **restart Claude Code** — tools are loaded at session start, so enabling it mid-session has no effect. Without the flag, `dev-flow` automatically falls back to the baseline path.
+### Cross-session messaging for `dev-graph` (required)
 
-When the flag is on, `dev-flow` **prefers the warm worker**. Note that `SendMessage` is a *deferred* tool: it won't show up in the orchestrator's directly-loaded tool list even when enabled — it must be resolved via `ToolSearch` (`select:SendMessage`). The skill detects it this way, so a session with the flag set genuinely uses warm; it does not silently stay cold just because the tool isn't pre-loaded.
-
-> This flag enables an experimental feature whose behavior may change.
-
-### Agent teams for `dev-graph` (required)
-
-The same `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` flag above is only an optional speed-up for `dev-flow`'s warm worker, but it is **required** for `dev-graph`: both the main session and every child session need it set before they start. `SendMessage`/`ListAgents` are dev-graph's only transport for dispatching work, waiting on children, and relaying replies — there is no fallback path the way there is for dev-flow's warm/cold worker choice.
+`dev-graph` dispatches work, waits on children, and relays replies only through `SendMessage`/`ListAgents` — there is no fallback. Both are on by default from Claude Code 2.1.224; `dev-graph` checks the version before it starts.
 
 ## Reviewer models for `code-review`
 
