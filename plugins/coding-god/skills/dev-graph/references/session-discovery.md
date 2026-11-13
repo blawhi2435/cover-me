@@ -16,7 +16,7 @@ The dispatcher's own name — the value every child authenticates replies agains
 
 ## Permission mode
 
-`permission_mode` (in `.devflow-repos.json`) must be one of `default`, `acceptEdits`, `plan`, `dontAsk`, or `auto` — nothing else reaches a shell, and `bypassPermissions` is refused outright (see below). It and `use_herdr` are asked once and reused across runs, but every run G2 asks the user to **state** this session's permission mode (not to confirm the recorded one) and halts if the answer differs from the recorded value, so a stale value never launches a child in a mismatched mode.
+`permission_mode` (in `.devflow-repos.json`) must be one of `default`, `acceptEdits`, `plan`, `dontAsk`, or `auto` — nothing else reaches a shell, and `bypassPermissions` is refused outright (see below). It is asked once and reused across runs (a `use_herdr` key from an older version is ignored), but every run G2 asks the user to **state** this session's permission mode (not to confirm the recorded one) and halts if the answer differs from the recorded value, so a stale value never launches a child in a mismatched mode.
 
 ## `~/.claude/sessions/<pid>.json`
 
@@ -30,50 +30,63 @@ Fields dev-graph uses:
 
 - `pid` — the OS process id, persisted as part of a child's identity and re-verified before every `proceed` and on resume.
 - `cwd` — compared (as an absolute path) against a group's root to find a just-launched session's record.
-- `name` — the string `SendMessage` and `ListAgents` use to address that session.
-- `sessionId` — persisted as `session_id`, the other half of a child's identity; some herdr commands also key on it when matching a pane to a Claude session.
+- `name` — the string `SendMessage` and `ListAgents` use to address that session. dev-graph sets it at launch with `-n`.
+- `sessionId` — persisted as `session_id`, the other half of a child's identity.
+- `kind` — `bg` for a `claude --bg` child, `interactive` for one running in a herdr pane. Informational only.
 
 ## Launching a child session
 
 dev-graph always launches a new session for a group — it never attaches to a session the user already has open, because that session's permission mode is unknown, which both stalls delivery and can route work into a more-permissive session than the run intends. There is a second reason: under `auto` permission mode the classifier judges whether work was requested by that session's own user. A session that already holds the user's conversation treats a `/dev-flow` run requested only by a peer's `SendMessage` as unrequested work and denies it (observed 2026-10-19: even the read-only Prerequisites commands were denied with "Unrequested Commit in a Connected App" until the user typed one line in that terminal). A fresh session whose only instruction is the dispatch brief is accepted, with or without any extra launch prompt (verified 2026-10-24/25 on both a local-only and a GitHub-connected repository). So the fix is this rule, not a launch-time prompt: never drive dev-flow through a session the user is already using, and do not add authorization text to the `claude` command line.
 
-**Session identification is by novelty, not by cwd alone.** A cwd match on its own is not enough — a session already sitting in the group root before the launch must never be addressed. Immediately before each launch, snapshot the full set of `~/.claude/sessions/*.json` records. After the launch, accept only a record that is **absent from that snapshot** and whose `cwd` equals the group root. Zero such new records, or more than one, halts G4 with the user told — dev-graph does not guess. Persist the accepted record's `name` (as `session`), `sessionId` (as `session_id`), and `pid` in `.devgraph-state.json`.
+**Session identification is by name and novelty, not by cwd alone.** Every child is launched with a unique name, `-n dg-<graph_id>-<group-slug>`. Immediately before each launch, snapshot the full set of `~/.claude/sessions/*.json` records. After the launch, accept only a record that is **absent from that snapshot**, whose `name` equals the launch name, and whose `cwd` equals the group root. Zero such records, or more than one, halts G4 with the user told — dev-graph does not guess. The name makes the match direct; novelty still guards against a stale record that happens to carry it. Persist the accepted record's `name` (as `session`), `sessionId` (as `session_id`), and `pid` in `.devgraph-state.json`. A record can take a few seconds to appear after the launch command returns; re-read the directory until it does, for up to 30 seconds, before treating it as zero.
 
 Before every `proceed` and again on resume, dev-graph re-verifies that a record with that `sessionId` and `pid` still exists **and still carries the same `name`**. Any mismatch — the record is gone, or its `name` no longer matches — marks the child `failed` and tells the user; dev-graph never falls back to a plain cwd or name lookup to find a replacement.
 
-Two paths, tried in order:
+## Launch command
 
-### herdr — gated on `use_herdr: true` and `HERDR_ENV=1`
-
-Taken only when the user has explicitly opted in (`use_herdr: true` in `.devflow-repos.json`) **and** the main session itself is running inside herdr (`HERDR_ENV=1`). herdr's own skill forbids controlling it from a session outside herdr, so an installed-but-outside herdr falls through to the manual path below, not to this one.
-
-1. Snapshot `~/.claude/sessions/*.json` (see above).
-2. `herdr tab create` — read the pane id from `.result.root_pane.pane_id` in its response.
-3. **Before the first `agent start` of the run, print the exact command line and ask the user to confirm it** — this is the consent the manual path gives by construction, so the herdr path must give it explicitly too.
-4. ```bash
-   herdr agent start <group-slug> --kind claude --pane <id> -- \
-     --model sonnet [--chrome] --permission-mode <mode>
-   ```
-   with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and `DEV_GRAPH_DISPATCHER=<dispatcher>` both set in the pane's environment before this runs.
-   - `<group-slug>` is a short herdr agent name (e.g. `api`) — distinct from the Claude session name `SendMessage` uses.
-   - `--chrome` is included only when the group's `frontend` attribute is `true`.
-   - `--permission-mode <mode>` is the run's own permission mode, from `.devflow-repos.json`'s `permission_mode` (see "Permission mode must match" below).
-5. Apply the novelty rule above against the snapshot taken in step 1 to find the `SendMessage` target and persist its `name` (as `session`), `sessionId` (as `session_id`), and `pid`.
-
-### Manual — ask the user
-
-Taken whenever the herdr path isn't available: not inside herdr, or the user never set `use_herdr: true`, regardless of whether herdr is installed. Snapshot `~/.claude/sessions/*.json` first, then print one launch command per group still needing a session:
+One command per group, shown verbatim to the user in G2's confirmation and run unchanged in G4:
 
 ```bash
-cd /Users/me/proj/web && CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 DEV_GRAPH_DISPATCHER=cover-me-5e \
-  claude --model sonnet --chrome --permission-mode acceptEdits
+DEV_GRAPH_DISPATCHER=<dispatcher> claude [--bg] -n dg-<graph_id>-<group-slug> --model sonnet [--chrome] --permission-mode <mode>
 ```
 
-Omit `--chrome` for a non-`frontend` group. Wait for the user to say the session is open, then apply the novelty rule above against the pre-launch snapshot.
+- `DEV_GRAPH_DISPATCHER` is the only environment variable set. The agent-teams flag is not: `SendMessage`/`ListAgents` are on by default from Claude Code 2.1.224 (G2 checks the version).
+- `--bg` only on the background path below.
+- `--chrome` only when the group's `frontend` attribute is `true`.
+- `--permission-mode <mode>` is the run's own `permission_mode` (see "Permission mode must never be `bypassPermissions`" below).
+- No prompt argument. The dispatch brief goes by `SendMessage` in G5; dispatched mode never accepts a brief that arrives as the session's own user message.
+
+`<group-slug>` is a short lowercase slug of the group root's basename (e.g. `api`), de-duplicated within the run by appending `-2`, `-3`.
+
+dev-graph launches every child itself. The path is chosen by the environment, never by a setting, and the user is never asked to open a session. The consent for the launch is the user's G2 confirmation of the exact command lines, so G4 does not ask again.
+
+### herdr pane — when the main session runs inside herdr (`HERDR_ENV=1`)
+
+The child runs in the foreground in a new herdr tab, where the user can watch and operate it.
+
+1. Snapshot `~/.claude/sessions/*.json` (see above).
+2. `herdr tab create --cwd <root> --label <group-slug>` — read the pane id from `.result.root_pane.pane_id` in its response and record it as the child's `herdr_pane`.
+3. `herdr pane run <pane_id> "<launch command without --bg>"` — sends the command and Enter to the pane's shell, which already sits in `<root>`.
+4. Apply the identification rule above against the snapshot from step 1.
+
+herdr detects a `claude` process in its own pane by itself (verified 2026-11-13: it appeared in `herdr agent list` and in `ListAgents` without `herdr agent start`), so `herdr agent start` is not used and there is no separate herdr agent name to track. herdr's own skill forbids driving it from outside herdr; this path is never taken when `HERDR_ENV` is not `1`, even if herdr is installed.
+
+### Background — otherwise
+
+The child runs as a Claude Code background session with no terminal.
+
+1. Snapshot `~/.claude/sessions/*.json`.
+2. From the group root (`cd <root> && …` in the same shell command), run the launch command with `--bg`. It returns at once and prints `backgrounded · <id> · <name>`; record `<id>` as the child's `bg_id`. The session inherits the invoking shell's cwd and environment, so `DEV_GRAPH_DISPATCHER` reaches it (verified 2026-11-13).
+3. Apply the identification rule above against the snapshot from step 1. The record's `kind` is `bg`.
+4. Tell the user, once per child: `claude attach <bg_id>` opens that child in any terminal; `←` returns to the agent list and `Ctrl+Z` to the shell, and the child keeps running either way. `claude agents` lists all of them.
+
+herdr cannot show a background session — it has no terminal — so this path is for runs outside herdr only.
+
+A `--bg` launch in a directory that was never trusted fails at once with `Workspace not trusted`; G2's trust check exists to catch this before anything is launched.
 
 ## Permission mode must never be `bypassPermissions`
 
-`SendMessage` holds a message for the receiving user's approval whenever the receiver's permission mode differs from the sender's. A child session has no user present to grant that approval, so a mismatched launch stalls delivery silently — the symptom looks like a child that never received its dispatch brief. Every launch, herdr or manual, passes the run's own `permission_mode` as recorded in `.devflow-repos.json`.
+`SendMessage` holds a message for the receiving user's approval whenever the receiver's permission mode differs from the sender's. A child session has no user present to grant that approval, so a mismatched launch stalls delivery silently — the symptom looks like a child that never received its dispatch brief. Every launch, herdr pane or background, passes the run's own `permission_mode` as recorded in `.devflow-repos.json`.
 
 dev-graph refuses to launch any child when the run's `permission_mode` is `bypassPermissions`, or when the main session itself is running with the equivalent CLI flag `--dangerously-skip-permissions`: propagating bypass permissions to an unattended session the user cannot watch is refused outright, and the user is told to choose another mode before G4 proceeds.
 
