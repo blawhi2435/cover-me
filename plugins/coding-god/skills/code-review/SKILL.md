@@ -75,6 +75,8 @@ If a selected agent type cannot be dispatched (not registered, or the Agent tool
 
 If a specialist returns a partial-input refusal instead of findings, that is a dispatch error, not a missing agent: re-dispatch that specialist once with all three inputs. If it refuses again, halt and surface its message verbatim.
 
+**On opencode:** (applies when the coding-god opencode plugin is loaded, so the converted reviewers are registered) dispatch with opencode's `subagent` tool, one call per selected specialist, all in the same turn so they run in parallel, using the converted agent ids `coding-god/logic-reviewer`, `coding-god/security-reviewer`, `coding-god/test-reviewer` and `coding-god/style-reviewer` in place of the `coding-god:<name>` agent types; the tool's argument is `agent`. The inputs passed to each specialist, the no-`model` rule (the plugin maps `opus` to its `strong` option and `sonnet` to `fast`, and a reviewer inherits the session's model when the option is unset), the refusal handling, and the halt on a missing agent are all unchanged — "the Agent tool is unavailable" reads "the `subagent` tool is unavailable".
+
 ### Step 4: Aggregate results
 
 Aggregate only if every selected specialist returned a review (findings or `Issues: none`). If any selected specialist did not return a review — unavailable, refused twice, or returned something that is not a review — stop here: state which specialist failed and why, and produce no review report and no verdict.
