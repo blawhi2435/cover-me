@@ -37,9 +37,9 @@ opencode has no marketplace command — let your AI agent install it for you. In
 Fetch and follow instructions from https://raw.githubusercontent.com/blawhi2435/cover-me/main/.opencode/INSTALL.md
 ```
 
-The agent will clone the repo to `~/.cover-me`, symlink the skills into `~/.config/opencode/skills/`, and verify the result. Full steps live in [.opencode/INSTALL.md](./.opencode/INSTALL.md).
+The agent will remove any old skill symlinks that point into `~/.cover-me`, clone the repo to `~/.cover-me`, register the `coding-god` opencode plugin from `~/.cover-me/opencode` in `~/.config/opencode/opencode.json`, and verify the result. The plugin registers the six skills and the five subagents, and adds the cross-session tools `dev-graph` needs. It requires opencode 2.2.7 or newer, superpowers and OpenSpec installed for opencode, and optionally takes `fast` and `strong` model options for the agents. Full steps live in [.opencode/INSTALL.md](./.opencode/INSTALL.md).
 
-> Note: `desktop-notify` relies on Claude Code hooks and is not supported on opencode — only `coding-god`'s skills will be installed.
+> Note: `desktop-notify` and `session-bridge` rely on Claude Code hooks and sessions and are not supported on opencode — only `coding-god` is installed.
 
 ## Dependencies
 

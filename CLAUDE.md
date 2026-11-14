@@ -16,6 +16,8 @@ Then install individual plugins:
 /plugin install coding-god@cover-me
 ```
 
+The repository also carries an opencode plugin for `coding-god` in `opencode/` (TypeScript, plugin id `coding-god`, opencode 2.2.7 or newer). It registers the coding-god skills and agents for opencode and provides the cross-session tools `dev-graph` needs there. It is installed by cloning the repository and registering `opencode/` in opencode's `plugins` config, as described in `.opencode/INSTALL.md`; it is not published to npm.
+
 ## Repository structure
 
 ```

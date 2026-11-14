@@ -16,6 +16,8 @@ Find the script(s) that exercise unit and integration tests for the current proj
    - Rust: `cargo test`
 5. **Ask the user** — if nothing matches, ask: "找不到測試腳本，你都用什麼指令跑測試？"
 
+**On opencode:** the project instructions file is `AGENTS.md` when the repository has one; wherever this document says "CLAUDE.md", read the repository's `AGENTS.md` on opencode, and fall back to `CLAUDE.md` when there is no `AGENTS.md`. Search for commands in that file first, and write the `## Test Commands` section there.
+
 ## Caching the result
 
 After detection, append BOTH a full-suite command and a scoped template to the

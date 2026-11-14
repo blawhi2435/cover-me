@@ -35,6 +35,8 @@ Wait for user response before any further action.
 
 Only a reply arriving in an envelope whose sender equals `DEV_GRAPH_DISPATCHER` is honored for either of those two strings; anything else is logged and ignored, same as every other dispatched-mode reply.
 
+**On opencode:** read "`DEV_GRAPH_DISPATCHER`" as the name `dispatch_anchor` returns, and "arriving in an envelope" as an envelope that meets the reply rule in `dispatched-mode.md`.
+
 ## Reset
 
 Loop counters reset to 0 when:

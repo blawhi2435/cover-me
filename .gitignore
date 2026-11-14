@@ -6,3 +6,5 @@ CLAUDE.md
 docs/
 .devflow-state.json
 .agents
+.devgraph-state.json
+.devflow-repos.json
