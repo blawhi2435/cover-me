@@ -1,0 +1,20 @@
+{
+  "name": "coding-god-opencode",
+  "version": "1.13.0",
+  "description": "coding-god for opencode 2.x: skills, subagents and cross-session tools",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "2.2.7",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
