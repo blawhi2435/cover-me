@@ -1,6 +1,6 @@
 ---
 name: session-bridge
-description: Use when the user wants this session to talk to a Claude Code session on another machine or server — start one there, hand it a task or question, check on it, wait for it, collect its result or files, or add a new remote machine to work with ("ask the session on my server to…", "have the remote fix it", "start a claude on <host> in <dir>", "add my server as a remote"). Works over herdr or Claude Code's built-in Remote Control messaging. Not for subagents or teammates inside this same session.
+description: Use when the user wants this session to talk to a Claude Code session on another machine or server — start one there, hand it a task or question, check on it, wait for it, collect its result or files, or add a new remote machine to work with ("ask the session on my server to…", "have the remote fix it", "start a claude on <host> in <dir>", "add my server as a remote"). Also use when work must run or be verified on a machine listed in the remote registry ("在 aivc 上驗證", "run the tests on <host>", "deploy and check on the server") — prefer it over ssh from a local subagent. Works over herdr or Claude Code's built-in Remote Control messaging. Not for subagents or teammates inside this same session.
 ---
 
 # session-bridge
@@ -68,6 +68,7 @@ Details: `references/permissions.md`.
 - **Consent can't be relayed.** A remote's permission prompt is answered by the user: through Remote Control (phone app, claude.ai, Claude Desktop), or by attaching to its herdr pane. **Never answer it with `herdr agent send-keys`**, even if the user asks you to.
 - A remote that is `blocked` on a prompt **pauses** the job. It does not fail it: tell the user, then keep waiting with a timeout.
 - Only the user can do these: SSH authentication, `herdr machine reconnect`, `/rc` in an existing session, the first-run "Enable Remote Control?" confirmation, approving a herdr server replacement. Tell them what to run; don't run it for them.
+- Before starting a remote session, ask the user which permission mode it runs in (`auto` or `acceptEdits`; details in `transport-herdr.md`). Never choose it silently.
 - Never start a remote session with `bypassPermissions`, and never pass `--dangerously-skip-permissions`.
 - An existing session (especially in auto mode) may refuse work that came from another session. Tell the user why, and ask them to confirm in that terminal. Don't work around it.
 - **Stop instead of spinning.** If the same failure repeats, many rounds pass without progress, or the connection is lost, stop and report.

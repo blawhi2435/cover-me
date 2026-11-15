@@ -18,7 +18,7 @@ Then wait for the state to leave `blocked`, using explicit `--until` states (see
 
 ## Fewer prompts: the allowlist
 
-New sessions start with `--permission-mode acceptEdits` plus an `--allowedTools` list: the default read-only list, plus the registry's per-remote `allowlist`, plus the commands the task needs. `transport-herdr.md` gives the default list. All of it is in the launch command the user confirms. Keep it to what the task needs. Never use `bypassPermissions` or `--dangerously-skip-permissions`.
+New sessions start in the permission mode the user picks before launch (`auto` or `acceptEdits`; ask every time, `acceptEdits` if they won't choose, see `transport-herdr.md`) plus an `--allowedTools` list: the default read-only list, plus the registry's per-remote `allowlist`, plus the commands the task needs. `transport-herdr.md` gives the default list. All of it is in the launch command the user confirms. Keep it to what the task needs. Never use `bypassPermissions` or `--dangerously-skip-permissions`.
 
 ## Why messages get stuck (built-in transport)
 

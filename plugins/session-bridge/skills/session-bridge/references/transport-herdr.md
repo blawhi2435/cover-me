@@ -44,16 +44,19 @@ herdr --machine <label> pane list
    Either response gives the pane id in `.result.root_pane.pane_id` and its `cwd`; if the `cwd` is not the directory you asked for, close that tab and fix the path. Remember the tab id: this job created it.
 
    Also create the task directory first, so the session can write there without a prompt (next step): `ssh <ssh-target> 'mkdir -p ~/.cache/session-bridge'`.
-2. **Before the first launch in a job, show the user the exact command and get a yes.** Then run:
+2. **Before the first launch in a job, ask the user which permission mode the session runs in**, then show the exact command and get a yes. Ask every time; never pick the mode silently:
+   - `auto` — the session approves routine commands itself and stops only on what its safety check flags. Fewest prompts; steps that change shared state (pushes, migrations, deploys) may also run without asking.
+   - `acceptEdits` — file edits in its directory are approved, every Bash command outside `--allowedTools` prompts the user (including harmless ones whose command line has `$VAR` or `$(…)`). Most control, most prompts.
+   Recommend one for the task at hand and say why. Then run:
    ```
    herdr --machine <label> agent start <name> --kind claude --pane <pane_id> -- \
-     --remote-control "<name>" --permission-mode acceptEdits \
+     --remote-control "<name>" --permission-mode <auto|acceptEdits> \
      --add-dir <remote home>/.cache/session-bridge \
      --allowedTools <default allowlist…> <registry allowlist…> <task-specific…>
    ```
    - `<name>` must match `[a-z][a-z0-9_-]{0,31}` and be unique among that remote's live agents. Use the same string for the Remote Control name, so the user finds the session on the phone or on claude.ai.
    - `acceptEdits` auto-approves edits only inside the session's own directory. `--add-dir` (an absolute remote path) extends that to the task directory, so writing result files there doesn't raise a prompt each time; without it, every file written there asks the user.
-   - Use `--permission-mode acceptEdits` by default. **Never `bypassPermissions`, never `--dangerously-skip-permissions`.**
+   - The mode is the one the user chose in this step. If the user won't choose, use `acceptEdits`. **Never `bypassPermissions`, never `--dangerously-skip-permissions`**, even if asked.
    - Default allowlist, read-only:
      ```
      "Read" "Grep" "Glob" "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(ls:*)"
