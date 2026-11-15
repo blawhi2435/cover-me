@@ -37,7 +37,7 @@ opencode has no marketplace command — let your AI agent install it for you. In
 Fetch and follow instructions from https://raw.githubusercontent.com/blawhi2435/cover-me/main/.opencode/INSTALL.md
 ```
 
-The agent will remove any old skill symlinks that point into `~/.cover-me`, clone the repo to `~/.cover-me`, register the `coding-god` opencode plugin from `~/.cover-me/opencode` in `~/.config/opencode/opencode.json`, and verify the result. The plugin registers the six skills and the five subagents, and adds the cross-session tools `dev-graph` needs. It requires opencode 2.2.7 or newer, superpowers and OpenSpec installed for opencode, and optionally takes `fast` and `strong` model options for the agents. Full steps live in [.opencode/INSTALL.md](./.opencode/INSTALL.md).
+The agent will remove any old skill symlinks that point into `~/.cover-me`, clone the repo to `~/.cover-me`, register the `coding-god` opencode plugin from `~/.cover-me/opencode` in `~/.config/opencode/opencode.json`, and verify the result. The plugin registers the six skills and the five subagents, and adds the cross-session tools `dev-graph` needs. It requires opencode 2.2.7 or newer, and superpowers installed for opencode, and optionally takes `fast` and `strong` model options for the agents. Full steps live in [.opencode/INSTALL.md](./.opencode/INSTALL.md).
 
 > Note: `desktop-notify` and `session-bridge` rely on Claude Code hooks and sessions and are not supported on opencode — only `coding-god` is installed.
 
@@ -46,11 +46,12 @@ The agent will remove any old skill symlinks that point into `~/.cover-me`, clon
 `coding-god` invokes skills from the following third-party plugins. Install them separately before using `coding-god`:
 
 - **superpowers** — provides `superpowers:brainstorming`, `superpowers:test-driven-development`
-- **opsx** (OpenSpec workflow) — provides `opsx:ff`, `opsx:apply`, `opsx:archive`. Requires the OpenSpec CLI **≥ 1.8.0** (`npm i -g @fission-ai/openspec@latest`); after upgrading the CLI, run `openspec update` in each repo so the generated skills match. `dev-flow` checks both before it starts.
+
+Nothing else is required: the task gate `dev-flow` uses ships with the plugin and needs only `sh`, `awk`, `sed`, `grep` and coreutils.
 
 ## `dev-graph`
 
-`coding-god:dev-graph` is a process skill for a **main session** that runs `dev-flow` in child sessions — one per repository, so it works for a single repository as well as for a change spanning several (for example a backend API and the frontend that calls it). It never writes feature code itself, and you talk only to the main session. You decide at exactly two points: approving the spec, and approving the combined summary before any child archives, commits, or opens a PR.
+`/dev-graph` is how you start work — a feature, a fix, or anything you want built. `coding-god:dev-graph` is a process skill for a **main session** that runs `dev-flow` (the delivery engine, which is internal and acts only when dev-graph dispatches it) in child sessions — one per repository, so it works for a single repository as well as for a change spanning several (for example a backend API and the frontend that calls it). It never writes feature code itself, and you talk only to the main session. You decide at exactly two points: approving the spec, and approving the combined summary before any child commits or opens a PR.
 
 The main session launches every child itself — you never open a session by hand:
 

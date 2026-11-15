@@ -33,7 +33,7 @@ describe("loadSkills", () => {
   it("uses the frontmatter description and the body without frontmatter as content", () => {
     const devFlow = skills.find((skill) => skill.id === "coding-god:dev-flow")
     const raw = readFileSync(join(SKILLS_DIR, "dev-flow", "SKILL.md"), "utf8")
-    expect(devFlow?.description).toMatch(/^Use when the user wants to implement a new feature/)
+    expect(devFlow?.description).toMatch(/^Engine run inside a child session that dev-graph launches/)
     expect(devFlow?.content.startsWith("# dev-flow")).toBe(true)
     expect(raw.startsWith("---")).toBe(true)
     expect(devFlow?.content.startsWith("---")).toBe(false)

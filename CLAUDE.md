@@ -27,11 +27,6 @@ plugins/<name>/
   skills/<skill-name>/
     SKILL.md                      # Skill definition with YAML frontmatter (name, description)
     references/                   # Optional reference docs loaded by the skill
-openspec/                         # OpenSpec change management (spec-driven workflow)
-  config.yaml
-  changes/<change-name>/
-    .openspec.yaml
-    proposal.md
 ```
 
 ## Adding a new plugin
@@ -44,4 +39,4 @@ openspec/                         # OpenSpec change management (spec-driven work
 - Every plugin must have `.claude-plugin/plugin.json` with `name`, `description`, and `version`.
 - Every skill lives at `skills/<skill-name>/SKILL.md` with YAML frontmatter (`name`, `description`).
 - Reference files go inside the skill's own directory: `skills/<skill-name>/references/`.
-- Changes to this marketplace are managed via OpenSpec (`/opsx new`, `/opsx apply`, etc.).
+- Changes to this marketplace are delivered with `/dev-graph`.

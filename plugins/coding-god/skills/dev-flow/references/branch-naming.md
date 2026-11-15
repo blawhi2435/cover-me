@@ -2,15 +2,15 @@
 
 ## Default rule
 
-Derive from the opsx change name produced in Node 3:
+The brief names the branch and dev-flow creates it as given (Node 2). When dev-graph derives that name, it follows this rule, starting from the change name derived from the spec title (kebab-case, at most five words):
 
 ```
-feat/<opsx-change-name>
+feat/<change-name>
 ```
 
 Examples:
-- opsx change `dataset-group-assignment-schema-design` → `feat/dataset-group-assignment-schema-design`
-- opsx change `space-create-validations` → `feat/space-create-validations`
+- change `dataset-group-assignment-schema-design` → `feat/dataset-group-assignment-schema-design`
+- change `space-create-validations` → `feat/space-create-validations`
 
 ## Prefix selection
 
@@ -21,13 +21,6 @@ Use the prefix that matches the work type:
 - `chore/` — tooling, deps, config
 
 If unclear, default to `feat/`.
-
-## Override
-
-After deriving, present the suggested name and ask:
-> "Branch name: `<derived>`. Override? (enter to accept, or type a new name)"
-
-Accept any non-empty user input as the override. Do not validate against any pattern.
 
 ## Existing branch
 
