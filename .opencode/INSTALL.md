@@ -9,7 +9,6 @@ coding-god runs on opencode **2.2.7 or newer** (package `@opencode/cli`) through
 - `opencode --version` reports 2.2.7 or later. If older, stop and tell the user to upgrade opencode.
 - `git` is installed. All commands run on the user's local machine (Linux / macOS). Windows users should use WSL or Git Bash.
 - **superpowers** is installed for opencode (on opencode it registers its skills under unprefixed ids, for example `brainstorming` and `test-driven-development`; coding-god's `superpowers:<name>` means the skill registered as `<name>`). Follow superpowers' own opencode install instructions at https://github.com/obra/superpowers; coding-god does not bundle it.
-- **OpenSpec** CLI 1.8.0 or later (`openspec --version`; `npm i -g @fission-ai/openspec@latest`), and each repository you will run `dev-flow` in initialized for opencode (`openspec init`, selecting opencode), which generates `.opencode/skills/openspec-*` and the `/opsx-*` commands. After upgrading the CLI, run `openspec update` in each repository.
 
 `desktop-notify` and `session-bridge` use Claude Code hooks and sessions and are not supported on opencode.
 

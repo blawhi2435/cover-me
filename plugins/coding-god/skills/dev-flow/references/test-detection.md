@@ -14,7 +14,7 @@ Find the script(s) that exercise unit and integration tests for the current proj
    - Node: `npm test` (after checking `package.json` `scripts.test`)
    - Python: `pytest` (after checking for `pytest.ini` / `pyproject.toml`)
    - Rust: `cargo test`
-5. **Ask the user** — if nothing matches, ask: "找不到測試腳本，你都用什麼指令跑測試？"
+5. **Return a blocker** — if nothing matches, halt and return a blocker to the orchestrator ("no test command found; which command runs the tests?"), which sends it to the dispatcher as `blocked`.
 
 **On opencode:** the project instructions file is `AGENTS.md` when the repository has one; wherever this document says "CLAUDE.md", read the repository's `AGENTS.md` on opencode, and fall back to `CLAUDE.md` when there is no `AGENTS.md`. Search for commands in that file first, and write the `## Test Commands` section there.
 
@@ -51,7 +51,7 @@ On future dev-flow runs, Node 7 reads the "Full suite" line; Node 5 reads the
 "Scoped" line and substitutes the current Task's test file path.
 
 If the user has explicitly excluded auto-edits to CLAUDE.md, store both
-commands in conversation memory instead and surface them to the user.
+commands in conversation memory instead and report them in the return payload.
 
 ## Environment readiness (pre-flight)
 
@@ -61,7 +61,7 @@ Checklist (run what applies to the project):
 
 - **Lockfile install** — if `package.json` + `pnpm-lock.yaml` present, run `pnpm install --frozen-lockfile`. Equivalent: `npm ci`, `yarn install --frozen-lockfile`, `bun install --frozen-lockfile`, `uv sync`, `poetry install`, `go mod download`, `cargo fetch`.
 - **Container services up** — if `docker-compose.yml` / `compose.yaml` present, run `docker compose ps` and confirm required services are `running` / `healthy`. If not, `docker compose up -d` and wait for health.
-- **Required env vars** — if `.env.example` exists, diff against current env; surface missing vars to the user before running tests rather than letting tests fail opaquely.
+- **Required env vars** — if `.env.example` exists, diff against current env; return the missing vars as a blocker before running tests rather than letting tests fail opaquely.
 - **DB / migrations** — if the project has a migration command (e.g. `pnpm db:push`, `alembic upgrade head`, `rails db:migrate`), run it against the test DB.
 
 If any pre-flight step fails, halt Node 7 and report the failure verbatim — do not proceed to test execution.
@@ -121,10 +121,10 @@ Implementation: capture stdout+stderr of the test command, run the grep, and inc
 ## Frontend test perf notes
 
 If the project uses Vitest with jsdom/happy-dom and the full-suite run is slow
-or memory-heavy, consider these flags. **Do not auto-apply** — surface to the
-user and let them decide whether to add them to the cached command:
+or memory-heavy, consider these flags. **Do not auto-apply** — report them in
+`deviations` for the dispatcher to decide on:
 
 - `--pool=forks --poolOptions.forks.singleFork=true` — single worker, lower memory
 - `--no-isolate` — skip module isolation between tests; faster but tests must be hygienic (no cross-test global state)
 
-These are advisory. The skill does not modify the user's cached command without their explicit approval.
+These are advisory. The skill does not modify the cached command on its own.

@@ -8,3 +8,4 @@ docs/
 .agents
 .devgraph-state.json
 .devflow-repos.json
+.devflow/

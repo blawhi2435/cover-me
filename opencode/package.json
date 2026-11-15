@@ -1,6 +1,6 @@
 {
   "name": "coding-god-opencode",
-  "version": "1.13.0",
+  "version": "2.0.0",
   "description": "coding-god for opencode 2.x: skills, subagents and cross-session tools",
   "type": "module",
   "private": true,

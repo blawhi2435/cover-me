@@ -19,6 +19,8 @@ Dispatch parallel specialist subagents to review code changes. Each specialist r
 
 Programmatic: called from other skills via `$ARGUMENTS` with `base_sha head_sha`.
 
+**Extra inputs from dev-flow.** When `coding-god:dev-flow` invokes this skill it also passes three paths: the **spec path**, the **tasks path** (`.devflow/tasks.md`) and the **red evidence directory** (`.devflow/red`). They are used only in Steps 2 and 3. A standalone invocation passes none of them and behaves exactly as described without them.
+
 ## Process
 
 ### Step 1: Parse input & get diff
@@ -43,6 +45,8 @@ Analyze the diff stat output:
 | `coding-god:security-reviewer` | `opus` | Changed files include: auth, middleware, config, credentials, permissions — OR — diff contains: SQL queries (raw sql.Exec/db.Raw), authentication logic, secret/token handling |
 | `coding-god:test-reviewer` | `sonnet` | Changed files include `.test.`, `_test.`, `spec.`, OR logic changes > 50 lines |
 | `coding-god:style-reviewer` | `sonnet` | Always — no exceptions |
+
+**When the three dev-flow inputs are present**, `coding-god:test-reviewer` is selected **always**, whatever the size of the diff and whether or not it touches test files. **When they are absent**, the trigger in the table above is the only rule.
 
 Tell the user which specialists you are launching before dispatching.
 
@@ -69,11 +73,15 @@ Pass to EACH specialist:
 - Changed file list (from `git diff --stat`)
 - One-line context: what was changed and in what language/framework
 
+To `coding-god:test-reviewer` only, and only when the three dev-flow inputs are present, also pass the **spec path**, the **tasks path** and the **red evidence directory**; they switch on its Red Evidence Audit and Scenario Coverage Audit. Without those inputs, pass nothing extra and it runs neither audit. No other specialist receives them.
+
 Do **not** pass a `model` parameter — it would override the agent's frontmatter, and the frontmatter is the contract. `dev-flow` follows the same rule when dispatching `dev-flow-implement`.
 
 If a selected agent type cannot be dispatched (not registered, or the Agent tool is unavailable), halt: tell the user which agent type is missing and quote the error verbatim. Never fall back to a general-purpose agent or an inline review.
 
-If a specialist returns a partial-input refusal instead of findings, that is a dispatch error, not a missing agent: re-dispatch that specialist once with all three inputs. If it refuses again, halt and surface its message verbatim.
+If a specialist returns a partial-input refusal instead of findings, that is a dispatch error, not a missing agent: re-dispatch that specialist once with all three inputs. If it refuses again, halt and surface its message verbatim. Passing only some of the three dev-flow inputs to `coding-god:test-reviewer` counts as a partial input: it refuses, so pass all three or none.
+
+When all three dev-flow inputs were passed, `coding-god:test-reviewer`'s output must contain the line `Audits: red evidence <n> groups, scenario coverage <n> scenarios, not-unit-tested reasons <n>`. A result without it is a dispatch error: re-dispatch that specialist once with all three inputs, and if it is missing again, halt and surface the output verbatim.
 
 **On opencode:** (applies when the coding-god opencode plugin is loaded, so the converted reviewers are registered) dispatch with opencode's `subagent` tool, one call per selected specialist, all in the same turn so they run in parallel, using the converted agent ids `coding-god/logic-reviewer`, `coding-god/security-reviewer`, `coding-god/test-reviewer` and `coding-god/style-reviewer` in place of the `coding-god:<name>` agent types; the tool's argument is `agent`. The inputs passed to each specialist, the no-`model` rule (the plugin maps `opus` to its `strong` option and `sonnet` to `fast`, and a reviewer inherits the session's model when the option is unset), the refusal handling, and the halt on a missing agent are all unchanged — "the Agent tool is unavailable" reads "the `subagent` tool is unavailable".
 
