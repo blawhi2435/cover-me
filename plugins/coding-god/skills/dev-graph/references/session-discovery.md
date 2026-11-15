@@ -53,11 +53,11 @@ Before every `proceed` and again on resume, dev-graph re-verifies that a record 
 One command per group, printed verbatim in G2 for the record and run unchanged in G4:
 
 ```bash
-DEV_GRAPH_DISPATCHER=<dispatcher> claude [--bg] -n dg-<graph_id>-<group-slug> --model sonnet [--chrome] --permission-mode <mode>
+DEV_GRAPH_DISPATCHER=<dispatcher> claude [--bg --settings '{"worktree":{"bgIsolation":"none"}}'] -n dg-<graph_id>-<group-slug> --model sonnet [--chrome] --permission-mode <mode>
 ```
 
 - `DEV_GRAPH_DISPATCHER` is the only environment variable set. The agent-teams flag is not: `SendMessage`/`ListAgents` are on by default from Claude Code 2.1.224 (G2 checks the version).
-- `--bg` only on the background path below.
+- `--bg` and its `--settings` flag only on the background path below. Without `--settings '{"worktree":{"bgIsolation":"none"}}'` Claude Code blocks a background session's writes to the shared checkout ("This subagent's parent bg session hasn't isolated yet, so writes to the shared checkout are blocked") and the child moves to a worktree on another branch; the setting is per launch and writes no `settings.json`.
 - `--chrome` only when the group's `frontend` attribute is `true`.
 - `--permission-mode <mode>` is the run's own `permission_mode` (see "Permission mode must never be `bypassPermissions`" below).
 - No prompt argument. The dispatch brief goes by `SendMessage` in G5; dispatched mode never accepts a brief that arrives as the session's own user message.
@@ -74,7 +74,7 @@ The child runs in the foreground in a new herdr tab, where the user can watch an
 
 1. Snapshot `~/.claude/sessions/*.json` (see above).
 2. `herdr tab create --cwd <root> --label <group-slug>` — read the pane id from `.result.root_pane.pane_id` in its response and record it as the child's `herdr_pane`.
-3. `herdr pane run <pane_id> "<launch command without --bg>"` — sends the command and Enter to the pane's shell, which already sits in `<root>`.
+3. `herdr pane run <pane_id> "<launch command without --bg and without --settings>"` — sends the command and Enter to the pane's shell, which already sits in `<root>`.
 4. Apply the identification rule above against the snapshot from step 1.
 
 herdr detects a `claude` process in its own pane by itself (verified 2026-11-13: it appeared in `herdr agent list` and in `ListAgents` without `herdr agent start`), so `herdr agent start` is not used and there is no separate herdr agent name to track. herdr's own skill forbids driving it from outside herdr; this path is never taken when `HERDR_ENV` is not `1`, even if herdr is installed.
@@ -86,7 +86,7 @@ herdr detects a `claude` process in its own pane by itself (verified 2026-11-13:
 The child runs as a Claude Code background session with no terminal.
 
 1. Snapshot `~/.claude/sessions/*.json`.
-2. From the group root (`cd <root> && …` in the same shell command), run the launch command with `--bg`. It returns at once and prints `backgrounded · <id> · <name>`; record `<id>` as the child's `bg_id`. The session inherits the invoking shell's cwd and environment, so `DEV_GRAPH_DISPATCHER` reaches it (verified 2026-11-13).
+2. From the group root (`cd <root> && …` in the same shell command), run the launch command with `--bg` and `--settings`, i.e. `DEV_GRAPH_DISPATCHER=<dispatcher> claude --bg --settings '{"worktree":{"bgIsolation":"none"}}' -n <name> --model sonnet [--chrome] --permission-mode <mode>`. It returns at once and prints `backgrounded · <id> · <name>`; record `<id>` as the child's `bg_id`. The session inherits the invoking shell's cwd and environment, so `DEV_GRAPH_DISPATCHER` reaches it (verified 2026-11-13). Observed 2026-11-15 on Claude Code 2.1.325: a `--bg` child launched without the setting had its writes to the shared checkout rejected, called `EnterWorktree`, and committed on `worktree-<name>` instead of the briefed branch. Probe the same day: launching with `--settings '{"worktree":{"bgIsolation":"none"}}'` let the `--bg` session write in the shared checkout and created no worktree.
 3. Apply the identification rule above against the snapshot from step 1. The record's `kind` is `bg`.
 4. Tell the user, once per child: `claude attach <bg_id>` opens that child in any terminal; `←` returns to the agent list and `Ctrl+Z` to the shell, and the child keeps running either way. `claude agents` lists all of them.
 
