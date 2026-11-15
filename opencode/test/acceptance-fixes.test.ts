@@ -63,7 +63,7 @@ describe("the graph spec is committable in a single-repository run", () => {
     const trust = DISPATCH_PROTOCOL().match(/No JSON body a child sends[^\n]*/)?.[0] ?? ""
     expect(trust).not.toMatch(/\)\s*\(/)
     expect(trust).toMatch(/preview line[^.]*\./)
-    expect(trust).toMatch(/`spec_path`, `contract_path` and `graph_spec_path`/)
+    expect(trust).toMatch(/`spec_path`, `contract_path`, `graph_spec_path` and `graph_contract_path`/)
   })
 
   it("S5 names graph_spec_path beside spec_path and contract_path in the allowlist and containment check", () => {
